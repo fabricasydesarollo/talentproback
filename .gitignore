@@ -1,1 +1,4 @@
 node_modules
+src/config/client-cert.pem
+src/config/client-key.pem
+src/config/server-ca.pem
