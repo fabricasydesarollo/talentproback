@@ -6,6 +6,8 @@ import { httpError } from "./middleware/httpError.js"
 import dontenv from "dotenv"
 import cors from "cors"
 import cookieParser from "cookie-parser"
+import https from 'https'
+import { readFileSync } from "fs"
 
 dontenv.config()
 
@@ -16,7 +18,7 @@ app.use(cookieParser())
 
 
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: ["https://talentprozentria.netlify.app", "http://localhost:5173"],
     credentials: true
 }))
 
@@ -38,8 +40,19 @@ db.authenticate()
 db.sync()
     .then(() => console.log('db sycn succes!!'))
     .catch(err => console.log(err))
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3002
 
-app.listen(PORT, () => {
+https
+  .createServer(
+    {
+      key: readFileSync(
+        "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ide.oncologosdeloccidente.net/ide.oncologosdeloccidente.net.key"
+      ),
+      cert: readFileSync(
+        "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ide.oncologosdeloccidente.net/ide.oncologosdeloccidente.net.crt"
+      ),
+    },
+    app
+  ).listen(PORT, () => {
     console.log(`Sever running ${PORT}`)
 })

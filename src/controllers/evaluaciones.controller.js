@@ -75,7 +75,7 @@ export const obtenerEvaluacion = async (req, res, next) => {
                                         idNivelCargo
                                     }
                                 }
-                            ]
+                            ], required: true
                         },
                         {
                             model: TipoCompetencia,
@@ -132,6 +132,12 @@ export const agregarComentarioGeneral = async (req, res, next) => {
     try {
         const { idColaborador, idEvaluador, idEvaluacion, comentario } = req.body;
 
+
+        let idTipoEvaluacion = 2
+        if (idColaborador == idEvaluador) {
+            idTipoEvaluacion = 1
+        }
+
         // Verificar si ya existe un comentario para la evaluación
         const existeComentario = await EvaluacionesRealizadas.findOne({
             where: {
@@ -151,6 +157,7 @@ export const agregarComentarioGeneral = async (req, res, next) => {
             idColaborador,
             idEvaluador,
             idEvaluacion,
+            idTipoEvaluacion,
             comentario
         });
 

@@ -27,6 +27,7 @@ export const crearRespuesta = async (req, res, next) => {
 export const obtenerRespuestas = async (req, res, next) => {
     try {
         const { idEvaluador, idColaborador } = req.query;
+
         const respuesta = await Respuestas.findAll({
             where: { idEvaluador, idColaborador},
             include: [
@@ -37,26 +38,26 @@ export const obtenerRespuestas = async (req, res, next) => {
 
         const agruparRespuestasPorCompetencia = (respuestas) => {
             return respuestas.reduce((acc, respuesta) => {
-                const competenciaId = respuesta.descriptore.competencia.idCompetencia;
+                const competenciaId = respuesta.Descriptore.Competencia.idCompetencia;
 
                 // Verifica si la competencia ya existe en el agrupamiento
                 if (!acc[competenciaId]) {
                     acc[competenciaId] = {
                         idCompetencia: competenciaId,
-                        nombreCompetencia: respuesta.descriptore.competencia.nombre,
+                        nombreCompetencia: respuesta.Descriptore.Competencia.nombre,
                         descriptores: []
                     };
                 }
 
                 // Verifica si el descriptor ya existe para evitar duplicados
                 const existeDescriptor = acc[competenciaId].descriptores.some(
-                    descriptor => descriptor.idDescriptor === respuesta.descriptore.idDescriptor
+                    descriptor => descriptor.idDescriptor === respuesta.Descriptore.idDescriptor
                 );
 
                 if (!existeDescriptor) {
                     acc[competenciaId].descriptores.push({
-                        idDescriptor: respuesta.descriptore.idDescriptor,
-                        nombreDescriptor: respuesta.descriptore.descripcion,
+                        idDescriptor: respuesta.Descriptore.idDescriptor,
+                        nombreDescriptor: respuesta.Descriptore.descripcion,
                         calificacion: {
                             idCalificacion: respuesta.calificacione.idCalificacion,
                             valor: respuesta.calificacione.valor,
@@ -70,6 +71,7 @@ export const obtenerRespuestas = async (req, res, next) => {
         };
 
         res.status(200).json({ message: "Ok", data: agruparRespuestasPorCompetencia(respuesta) });
+        // res.status(200).json({ message: "Ok", data: respuesta });
     } catch (error) {
         next(error);
     }

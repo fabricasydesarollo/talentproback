@@ -21,7 +21,12 @@ export const loginUsuario = async (req, res, next) => {
             const contrasenaValida = await comparePassword(contrasena, usuario.contrasena)
             if (contrasenaValida) {
                 const token = generateToken(usuario)
-                res.cookie("token", token, { httpOnly: false, path: "/", sameSite: 'Lax' });
+                res.cookie("token", token, { 
+                     path: "/", 
+                     sameSite: 'None',
+                     secure: true ,
+                     httpOnly: false 
+                    });
                 res.status(200).json({ message: "Inicio de sesión exitoso.", data: usuarioSedes })
             } else {
                 res.status(400).json({ message: "Credenciales invalidas." })

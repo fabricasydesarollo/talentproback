@@ -8,11 +8,11 @@ import routerRespuestas from "./respuestas.route.js"
 import { schemaGen, validateRequest } from "../middleware/validateSchema.js";
 const router = Router()
 
-router.use("/administrar/ciudades", validateRequest(schemaGen), routerCiudades)
-router.use("/administrar/empresas", routerEmpresas)
-router.use("/administrar/usuarios", routerUsuarios)
-router.use("/administrar/evaluaciones", routerEvaluaciones)
-router.use("/administrar/competencias", routerCompetencias)
-router.use("/administrar/respuestas", routerRespuestas)
+router.use("/ciudades", validateRequest(schemaGen), routerCiudades)
+router.use("/empresas", routerEmpresas)
+router.use("/usuarios", routerUsuarios)
+router.use("/evaluaciones", routerEvaluaciones)
+router.use("/competencias", routerCompetencias)
+router.use("/respuestas", routerRespuestas)
 
 export default router
