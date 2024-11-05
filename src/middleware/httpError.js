@@ -6,7 +6,6 @@ export const httpError = (error,req, res, next) => {
             message: "La solicitud contienen datos invalidos, por favor valide nuevamente."
         })  
     }
-
     res.status(500).json({
         succes: false,
         message: "Internal Server Error"

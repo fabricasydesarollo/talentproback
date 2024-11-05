@@ -28,6 +28,10 @@ export const Usuarios = db.define('usuarios', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    fechaIngreso: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
     idNivelCargo: {
         type: DataTypes.INTEGER,
         allowNull: false
@@ -41,6 +45,11 @@ export const Usuarios = db.define('usuarios', {
         defaultValue: 1,
         allowNull: true
     },
+    defaultContrasena: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: 1,
+        allowNull: true
+    }
 })
 
 export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
@@ -52,6 +61,10 @@ export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    estado:{
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    }
 });
 
 export const Perfiles = db.define("perfiles", {

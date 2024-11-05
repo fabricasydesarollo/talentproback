@@ -78,6 +78,9 @@ const initModels = () => {
     EvaluacionesRealizadas.belongsTo(Usuarios, {foreignKey: 'idEvaluador', as: 'evaluador', });
 
     EvaluacionesRealizadas.belongsTo(Evaluaciones, { foreignKey: 'idEvaluacion', as: 'evaluacion',});
+    Evaluaciones.hasMany(EvaluacionesRealizadas, {foreignKey: 'idEvaluacion'})
+
+    EvaluacionesRealizadas.belongsTo(TipoEvaluaciones, {foreignKey: 'idTipoEvaluacion'})
     TipoEvaluaciones.hasMany(EvaluacionesRealizadas, {foreignKey: 'idTipoEvaluacion'})
 
     EvaluacionesRealizadas.hasMany(Compromisos, { foreignKey: 'idEvalRealizada', sourceKey: 'idEvalRealizada'});

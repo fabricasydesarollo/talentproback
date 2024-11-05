@@ -1,24 +1,40 @@
-import { Competencias, Descriptores } from "../models/competencias.model.js";
+import { Competencias, Descriptores, TipoCompetencia } from "../models/competencias.model.js";
+import { Compromisos, EvaluacionesRealizadas, TipoEvaluaciones } from "../models/evaluaciones.model.js";
 import { Calificaciones, Respuestas } from "../models/respuestas.model.js"
+import { Usuarios, UsuariosEvaluadores } from "../models/usuarios.model.js";
 export const crearRespuesta = async (req, res, next) => {
     try {
         const {respuestas} = req.body;
-        // Usamos Promise.all para manejar todas las respuestas de manera asíncrona
-        const results = await Promise.all(
-            respuestas.map(async (respuesta) => {
-                const { idDescriptor, idColaborador, idEvaluador, idEvaluacion, idCalificacion } = respuesta;
-                const result = await Respuestas.create({
-                    idDescriptor,
-                    idColaborador,
-                    idEvaluador,
-                    idEvaluacion,
-                    idCalificacion
-                });
-                return result;
-            })
-        );
-        // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
-        res.status(200).json({ message: "Ok", data: results });
+        
+        if (respuestas.length > 1) {
+            // Usamos Promise.all para manejar todas las respuestas de manera asíncrona
+            await Promise.all(
+                respuestas.map(async (respuesta) => {
+                    const { idDescriptor, idColaborador, idEvaluador, idEvaluacion, idCalificacion } = respuesta;
+                    const existe = await Respuestas.findOne({where: {idColaborador, idEvaluador, idEvaluacion} })
+                    if (existe) {
+                        return res.status(400).json({message: "Esta evaluación ya fue resuelta"})
+                    }else {
+                        const result = await Respuestas.create({
+                            idDescriptor,
+                            idColaborador,
+                            idEvaluador,
+                            idEvaluacion,
+                            idCalificacion
+                        });
+                        return result;
+                    }
+                })
+            );
+            await UsuariosEvaluadores.update({estado: true},{where:{
+                idEvaluador: respuestas[0].idEvaluador, idUsuario: respuestas[0].idColaborador
+            }})
+            // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
+            res.status(200).json({ message: "Ok" });
+        }else{
+            res.status(400).json({message: "Falta información para procesar"})
+        }
+        
     } catch (error) {
         next(error); // Manejar el error correctamente
     }
@@ -26,52 +42,97 @@ export const crearRespuesta = async (req, res, next) => {
 
 export const obtenerRespuestas = async (req, res, next) => {
     try {
-        const { idEvaluador, idColaborador } = req.query;
+        const { idEvaluador, idColaborador, idEvaluacion } = req.query;
 
-        const respuesta = await Respuestas.findAll({
-            where: { idEvaluador, idColaborador},
+        const compromisos = await EvaluacionesRealizadas.findAll({
+            where: {
+                idEvaluacion,
+                idColaborador
+            },
+            include: [{model: Compromisos, include: [{model: Competencias, attributes: ["nombre"]}], attributes: ["comentario", "estado", "fechaCumplimiento"]}, {model: TipoEvaluaciones, attributes: ["nombre"]}],
+            attributes: ["comentario", "createdAt"]
+        })
+
+        const evaluacion = await Competencias.findAll({
             include: [
-                { model: Calificaciones }, 
-                { model: Descriptores, include: [{ model: Competencias }] }
-            ]
+                {
+                    model: Descriptores,
+                    attributes: ["idDescriptor"],
+                    include: [
+                        {
+                            model: Respuestas,
+                            where: {
+                                idEvaluador,
+                                idColaborador,
+                                idEvaluacion
+                            },
+                            attributes: ['idCalificacion'],
+                            include: [
+                                {
+                                    model: Calificaciones,
+                                    attributes: ["valor"]
+                                }
+                            ],
+                            required: true
+                        }
+                    ],
+                    required: true,
+                },{
+                    model: TipoCompetencia,
+                    attributes: ["nombre"]
+                }
+            ],
+            attributes: {exclude: ["updatedAt"]}
+        });
+        const autoevaluacion = await Competencias.findAll({
+            include: [
+                {
+                    model: Descriptores,
+                    attributes: ["idDescriptor"],
+                    include: [
+                        {
+                            model: Respuestas,
+                            where: {
+                                idEvaluador: idColaborador,
+                                idColaborador,
+                                idEvaluacion
+                            },
+                            attributes: ['idCalificacion'],
+                            include: [
+                                {
+                                    model: Calificaciones,
+                                    attributes: ["valor"]
+                                }
+                            ],
+                            required: true
+                        }
+                    ],
+                    required: true,
+                },{
+                    model: TipoCompetencia,
+                    attributes: ["nombre"]
+                }
+            ],
+            attributes: {exclude: ["updatedAt"]}
         });
 
-        const agruparRespuestasPorCompetencia = (respuestas) => {
-            return respuestas.reduce((acc, respuesta) => {
-                const competenciaId = respuesta.Descriptore.Competencia.idCompetencia;
-
-                // Verifica si la competencia ya existe en el agrupamiento
-                if (!acc[competenciaId]) {
-                    acc[competenciaId] = {
-                        idCompetencia: competenciaId,
-                        nombreCompetencia: respuesta.Descriptore.Competencia.nombre,
-                        descriptores: []
-                    };
-                }
-
-                // Verifica si el descriptor ya existe para evitar duplicados
-                const existeDescriptor = acc[competenciaId].descriptores.some(
-                    descriptor => descriptor.idDescriptor === respuesta.Descriptore.idDescriptor
+        const calcularPromedio = (respuestas) => {
+            return respuestas.map(competencia => {
+                const calificaciones = competencia.Descriptores.flatMap(descriptor => 
+                    descriptor.respuestas.map(respuesta => respuesta.calificacione.valor)
                 );
-
-                if (!existeDescriptor) {
-                    acc[competenciaId].descriptores.push({
-                        idDescriptor: respuesta.Descriptore.idDescriptor,
-                        nombreDescriptor: respuesta.Descriptore.descripcion,
-                        calificacion: {
-                            idCalificacion: respuesta.calificacione.idCalificacion,
-                            valor: respuesta.calificacione.valor,
-                            nombre: respuesta.calificacione.descripcion
-                        }
-                    });
-                }
-
-                return acc;
-            }, {});
-        };
-
-        res.status(200).json({ message: "Ok", data: agruparRespuestasPorCompetencia(respuesta) });
-        // res.status(200).json({ message: "Ok", data: respuesta });
+                const promedio = calificaciones.reduce((acc, val) => acc + val, 0) / calificaciones.length || 0;
+                return {
+                    idCompetencia: competencia.id,
+                    nombre: competencia.nombre,
+                    descripcion: competencia.descripcion,
+                    tipoCompetencia: competencia.TipoCompetencium.nombre,
+                    promedio,
+                    fechaRegistro: competencia.createdAt
+                };
+            });
+        } 
+        res.status(200).json({ message: "Ok",compromisos, evaluacion: calcularPromedio(evaluacion), autoevaluacion: calcularPromedio(autoevaluacion),  });
     } catch (error) {
         next(error);
     }
@@ -89,7 +150,9 @@ export const crearCalificacion = async (req, res, next) =>{
 
 export const obtenerCalificacion = async (req, res, next) => {
     try {
-        const respuesta = await Calificaciones.findAll()
+        const respuesta = await Calificaciones.findAll({
+            attributes: ["idCalificacion","descripcion", "valor"]
+        })
         res.status(200).json({ message: "Ok", data: respuesta })
     } catch (error) {
         next(error)

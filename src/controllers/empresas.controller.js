@@ -42,12 +42,7 @@ export const obtenerEmpresa = async (req, res, next) => {
 
 export const obtenerSedes = async (req, res, next) => {
     try {
-        const respuesta = await Sedes.findAll({ 
-            include: [{ model: Empresas, as: "empresa", attributes: { exclude: ["createdAt", "updatedAt", "idHub"] },
-            include: [{ model: Hubs, attributes: { exclude: ["createdAt", "updatedAt"] } }] },
-                    { model: Ciudades, as: "ciudad", attributes: { exclude: ["createdAt", "updatedAt", "idDepartamento"] }, 
-                    include: [{model: Departamentos, attributes:{exclude: ["createdAt", "updatedAt"]}}]}]
-            , attributes: { exclude: ["createdAt", "updatedAt", "idEmpresa", "idCiudad"] } })
+        const respuesta = await Sedes.findAll()
         res.status(200).json({ message: "Ok", data: respuesta })
     } catch (error) {
         next(error)

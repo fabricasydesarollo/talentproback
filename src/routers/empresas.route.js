@@ -3,12 +3,12 @@ import { crearEmpresa, crearHubs, crearSedes, obtenerEmpresa, obtenerHubs, obten
 
 const router = Router()
 
-router.route("/hubs")
-    .get(obtenerHubs)
-    .post(crearHubs)
 router.route("/")
     .get(obtenerEmpresa)
     .post(crearEmpresa)
+router.route("/hubs")
+    .get(obtenerHubs)
+    .post(crearHubs)
 router.route("/sedes")
     .get(obtenerSedes)
     .post(crearSedes)
