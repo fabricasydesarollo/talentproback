@@ -123,7 +123,7 @@ export const obtenerRespuestas = async (req, res, next) => {
                 );
                 const promedio = calificaciones.reduce((acc, val) => acc + val, 0) / calificaciones.length || 0;
                 return {
-                    idCompetencia: competencia.id,
+                    idCompetencia: competencia.idCompetencia,
                     nombre: competencia.nombre,
                     descripcion: competencia.descripcion,
                     tipoCompetencia: competencia.TipoCompetencium.nombre,

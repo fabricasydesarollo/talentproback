@@ -68,18 +68,31 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
   
 
 
-export const actualizarUsuario = async (req, res, next) => {
+  export const actualizarUsuario = async (req, res, next) => {
     try {
         const { idUsuario } = req.params;
-        const { nombre, cargo, correo, contrasena, idPerfil, idNivelCargo } = req.body
-        const password = await hashPassword(contrasena)
-        const respuesta = await Usuarios.update({ nombre, cargo, correo, contrasena: password, idPerfil, idNivelCargo }, {
-            where: { idUsuario }
-        });
+        const { nombre, cargo, correo, contrasena, idPerfil, idNivelCargo } = req.body;
+
+        if (!nombre || !cargo || !correo || !idPerfil || !idNivelCargo) {
+            return res.status(400).json({ message: "Faltan campos obligatorios" });
+        }
+
+        let password;
+        if (contrasena) {
+            password = await hashPassword(contrasena);
+        }
+        const camposActualizados = { nombre, cargo, correo, idPerfil, idNivelCargo };
+        if (password) {
+            camposActualizados.contrasena = password;
+        }
+
+        const respuesta = await Usuarios.update(camposActualizados, { where: { idUsuario } });
+
         if (respuesta[0] === 0) {
             return res.status(404).json({ message: "Usuario no encontrado o sin cambios" });
         }
-        res.status(200).json({ message: "Usuario actualizado exitosamente"});
+
+        res.status(200).json({ message: "Usuario actualizado exitosamente" });
     } catch (error) {
         next(error);
     }
