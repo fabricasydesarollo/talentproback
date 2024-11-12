@@ -71,17 +71,18 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
   export const actualizarUsuario = async (req, res, next) => {
     try {
         const { idUsuario } = req.params;
-        const { nombre, cargo, correo, contrasena, idPerfil, idNivelCargo } = req.body;
+        const { nombre, cargo, correo, contrasena, idPerfil, idNivelCargo, fechaIngreso, area, activo, defaultContrasena } = req.body;
 
         if (!nombre || !cargo || !correo || !idPerfil || !idNivelCargo) {
             return res.status(400).json({ message: "Faltan campos obligatorios" });
         }
 
         let password;
-        if (contrasena) {
+        if (contrasena !== undefined) {
             password = await hashPassword(contrasena);
         }
-        const camposActualizados = { nombre, cargo, correo, idPerfil, idNivelCargo };
+
+        const camposActualizados = { nombre, cargo, correo, idPerfil, idNivelCargo, fechaIngreso, activo, defaultContrasena };
         if (password) {
             camposActualizados.contrasena = password;
         }

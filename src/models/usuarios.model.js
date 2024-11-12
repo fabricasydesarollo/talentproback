@@ -49,6 +49,10 @@ export const Usuarios = db.define('usuarios', {
         type: DataTypes.BOOLEAN,
         defaultValue: 1,
         allowNull: true
+    },
+    area: {
+        type: DataTypes.STRING,
+        allowNull: false
     }
 })
 

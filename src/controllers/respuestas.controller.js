@@ -43,7 +43,6 @@ export const crearRespuesta = async (req, res, next) => {
 export const obtenerRespuestas = async (req, res, next) => {
     try {
         const { idEvaluador, idColaborador, idEvaluacion } = req.query;
-
         const compromisos = await EvaluacionesRealizadas.findAll({
             where: {
                 idEvaluacion,
@@ -52,38 +51,41 @@ export const obtenerRespuestas = async (req, res, next) => {
             include: [{model: Compromisos, include: [{model: Competencias, attributes: ["nombre"]}], attributes: ["comentario", "estado", "fechaCumplimiento"]}, {model: TipoEvaluaciones, attributes: ["nombre"]}],
             attributes: ["comentario", "createdAt"]
         })
-
-        const evaluacion = await Competencias.findAll({
-            include: [
-                {
-                    model: Descriptores,
-                    attributes: ["idDescriptor"],
-                    include: [
-                        {
-                            model: Respuestas,
-                            where: {
-                                idEvaluador,
-                                idColaborador,
-                                idEvaluacion
-                            },
-                            attributes: ['idCalificacion'],
-                            include: [
-                                {
-                                    model: Calificaciones,
-                                    attributes: ["valor"]
-                                }
-                            ],
-                            required: true
-                        }
-                    ],
-                    required: true,
-                },{
-                    model: TipoCompetencia,
-                    attributes: ["nombre"]
-                }
-            ],
-            attributes: {exclude: ["updatedAt"]}
-        });
+        let evaluacion
+        if (idEvaluador !== idColaborador) {
+            const respuesta = await Competencias.findAll({
+                include: [
+                    {
+                        model: Descriptores,
+                        attributes: ["idDescriptor"],
+                        include: [
+                            {
+                                model: Respuestas,
+                                where: {
+                                    idEvaluador,
+                                    idColaborador,
+                                    idEvaluacion
+                                },
+                                attributes: ['idCalificacion'],
+                                include: [
+                                    {
+                                        model: Calificaciones,
+                                        attributes: ["valor"]
+                                    }
+                                ],
+                                required: true
+                            }
+                        ],
+                        required: true,
+                    },{
+                        model: TipoCompetencia,
+                        attributes: ["nombre"]
+                    }
+                ],
+                attributes: {exclude: ["updatedAt"]}
+            })
+            evaluacion = calcularPromedio(respuesta)
+        }
         const autoevaluacion = await Competencias.findAll({
             include: [
                 {
@@ -132,7 +134,7 @@ export const obtenerRespuestas = async (req, res, next) => {
                 };
             });
         } 
-        res.status(200).json({ message: "Ok",compromisos, evaluacion: calcularPromedio(evaluacion), autoevaluacion: calcularPromedio(autoevaluacion),  });
+        res.status(200).json({ message: "Ok",compromisos, evaluacion, autoevaluacion: calcularPromedio(autoevaluacion),  });
     } catch (error) {
         next(error);
     }

@@ -5,6 +5,7 @@ import routerUsuarios from "./usuarios.route.js"
 import routerEvaluaciones from "./evaluaciones.route.js"
 import routerCompetencias from "./competencias.route.js"
 import routerRespuestas from "./respuestas.route.js"
+import routerInformes from "./informes.route.js"
 import { schemaGen, validateRequest } from "../middleware/validateSchema.js";
 const router = Router()
 
@@ -14,5 +15,6 @@ router.use("/usuarios", routerUsuarios)
 router.use("/evaluaciones", routerEvaluaciones)
 router.use("/competencias", routerCompetencias)
 router.use("/respuestas", routerRespuestas)
+router.use("/informes", routerInformes)
 
 export default router

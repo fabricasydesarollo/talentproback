@@ -16,7 +16,7 @@ export const loginUsuario = async (req, res, next) => {
             }
             const idUsuario = usuario.idUsuario
             const usuarioSedes = await Usuarios.findOne({
-                where: { idUsuario },  attributes: ["idUsuario", "nombre", "idPerfil", "idNivelCargo"], include: [{model: Empresas, attributes: {exclude: ["idHub", "createdAt", "updatedAt"]}, through: { attributes: []}}]
+                where: { idUsuario },  attributes: ["idUsuario", "nombre", "idPerfil", "idNivelCargo", "cargo"], include: [{model: Empresas, attributes: {exclude: ["idHub", "createdAt", "updatedAt"]}, through: { attributes: []}}]
             })    
             const contrasenaValida = await comparePassword(contrasena, usuario.contrasena)
             const { defaultContrasena} = usuario
