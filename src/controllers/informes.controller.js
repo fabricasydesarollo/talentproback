@@ -77,92 +77,57 @@ export const informeAvancesGraficas = async (req, res, next) => {
 };
 export const informeAvancesGraficasAll = async (req, res, next) => {
   try {
-    const totalRespuestasPorSede = await Usuarios.findAll({
-        attributes: [
-            [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('colaboradoresResp.idUsuario'))), 'total'],  // Contamos usuarios distintos por idUsuario
-            [Sequelize.col('Sedes.nombre'), 'nombre'],  // Nombre de la sede
-            'Sedes.idSede',  // ID de la sede para agrupar
-          ],
+    const totalUsuariosSede = await Usuarios.findAll({
+      attributes: [
+        [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('colaboradoresResp.idUsuario'))), 'Respuestas'],  // Total de colaboradores
+        [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('usuarios.idUsuario'))), 'Usuarios'],  // Total de usuarios
+        [Sequelize.col('Sedes.nombre'), 'nombre'],  // Nombre de la sede
+        'Sedes.idSede',  // ID de la sede para agrupar
+      ],
       include: [
         { 
           model: Usuarios, 
           as: "colaboradoresResp", 
           attributes: [],  // No seleccionamos atributos de Usuarios directamente
           through: { attributes: [] },  // No necesitamos columnas de la tabla intermedia
-          required: true 
+          required: false  // Cambiado a false para LEFT JOIN
         },
         { 
           model: Sedes, 
           attributes: [], // No seleccionamos directamente columnas de Sedes
-          required: true, 
+          required: false,  // Cambiado a false para LEFT JOIN
           through: { attributes: [] },  // No seleccionamos atributos de la tabla intermedia de la relación
         }
       ],
       group: ['Sedes.idSede', 'Sedes.nombre'],  // Aseguramos de agrupar por idSede y nombre de sede
       distinct: true,
-      raw: true,  // Usamos raw para obtener resultados sin la envoltura de Sequelize,
-    });
-    const totalRespuestasPorEmpresa = await Usuarios.findAll({
+      raw: true,  // Usamos raw para obtener resultados sin la envoltura de Sequelize
+    });    
+
+    const totalUsuariosEmpresa = await Usuarios.findAll({
         attributes: [
-            [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('colaboradoresResp.idUsuario'))), 'total'],  // Contamos usuarios distintos por idUsuario
-            [Sequelize.col('Empresas.nombre'), 'nombre'],  // Nombre de la empresa
-            'Empresas.idEmpresa',  // ID de la empresa para agrupar
-          ],
-      include: [
-        { 
-          model: Usuarios, 
-          as: "colaboradoresResp", 
-          attributes: [],  // No seleccionamos atributos de Usuarios directamente
-          through: { attributes: [] },  // No necesitamos columnas de la tabla intermedia
-          required: true 
-        },
-        { 
-          model: Empresas, 
-          attributes: [], // No seleccionamos directamente columnas de Sedes
-          required: true, 
-          through: { attributes: [] },  // No seleccionamos atributos de la tabla intermedia de la relación
-        }
-      ],
-      group: ['Empresas.idEmpresa', 'Empresas.nombre'],  // Aseguramos de agrupar por idSede y nombre de sede
-      distinct: true,
-      raw: true,  // Usamos raw para obtener resultados sin la envoltura de Sequelize,
-    });
-    const totalUsuariosPorSede = await Usuarios.findAll({
-        attributes: [
-          [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('usuarios.idUsuario'))), 'total'],
-          [Sequelize.col('Sedes.nombre'), 'nombre'],
-          'Sedes.idSede',
-        ],
-        include: [
-          { 
-            model: Sedes,
-            through: { attributes: [] }, 
-            attributes: [],
-            required: true, 
-          }
-        ],
-        group: ['Sedes.idSede', 'Sedes.nombre'],
-        raw: true, 
-        subQuery: false, 
-      });
-      
-      
-      
-    const totalUsuariosPorEmpresa = await Usuarios.findAll({
-        attributes: [
-            [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('usuarios.idUsuario'))), 'total'],
+            [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('colaboradoresResp.idUsuario'))), 'Respuestas'],  // Contamos usuarios distintos por idUsuario
+            [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('usuarios.idUsuario'))), 'Usuarios'],
             [Sequelize.col('Empresas.nombre'), 'nombre'],
             'Empresas.idEmpresa',
           ],
           include: [
             { 
+              model: Usuarios, 
+              as: "colaboradoresResp", 
+              attributes: [],  // No seleccionamos atributos de Usuarios directamente
+              through: { attributes: [] },  // No necesitamos columnas de la tabla intermedia
+              required: false  // Cambiado a false para LEFT JOIN
+            },
+            { 
               model: Empresas,
               through: { attributes: [] }, 
               attributes: [],
-              required: true, 
+              required: false, 
             }
           ],
           group: ['Empresas.idEmpresa', 'Empresas.nombre'],
+          distinct: true,
           raw: true, 
           subQuery: false, 
     })
@@ -171,9 +136,57 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       .status(200)
       .json({
         message: "Informes",
-        data: {totalRespuestasPorSede, totalRespuestasPorEmpresa, totalUsuariosPorSede, totalUsuariosPorEmpresa },
+        data: {totalUsuariosEmpresa, totalUsuariosSede },
       });
   } catch (error) {
     next(error);
   }
 };
+
+export const informeExcelAvances = async (req, res, next) => {
+  try {
+
+    const resp = await Usuarios.findAll({
+      attributes: [
+        [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('usuarios.idUsuario'))), 'Usuarios'],
+        [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('colaboradoresResp.idUsuario'))), 'Respuestas'],  // Contamos usuarios distintos por idUsuario
+      ],
+      include: [
+        { 
+          model: Usuarios, 
+          as: "evaluadores", 
+          attributes: ['nombre'],  // No seleccionamos atributos de Usuarios directamente
+          through: { attributes: [] },  // No necesitamos columnas de la tabla intermedia
+          required: false  // Cambiado a false para LEFT JOIN
+        },
+        { 
+          model: Usuarios, 
+          as: "colaboradoresResp", 
+          attributes: [],
+          through: { attributes: [] },  // No necesitamos columnas de la tabla intermedia
+          required: false  // Cambiado a false para LEFT JOIN
+        },
+        { 
+          model: Empresas,
+          attributes: ['nombre'],
+          through: { attributes: [] }, 
+          required: false, 
+        },
+        { 
+          model: Sedes,
+          attributes: ['nombre'],
+          through: { attributes: [] }, 
+          required: false, 
+        }
+      ],
+      group: ['Empresas.idEmpresa', 'Empresas.nombre', 'evaluadores.nombre', 'Sedes.nombre'],
+      distinct: true,
+      raw: true, 
+      subQuery: false, 
+    })
+    res.status(200).json({message: "Informe Excel", resp})
+    
+  } catch (error) {
+    next(error)
+  }
+}

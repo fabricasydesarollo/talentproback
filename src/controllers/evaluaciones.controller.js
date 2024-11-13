@@ -265,7 +265,7 @@ export const evaluacionesDisponibles = async (req, res, next) => {
     })
     res
       .status(200)
-      .json({ disponible: !disponible, porcentageEvaluados: ((cantidadEvaluados * 100 ) / cantidadEvaluar)});
+      .json({ disponible: !disponible, porcentageEvaluados: cantidadEvaluar ? ((cantidadEvaluados * 100 ) / cantidadEvaluar) : 0});
   } catch (error) {
     next(error);
   }

@@ -41,6 +41,24 @@ export const crearRespuesta = async (req, res, next) => {
 };
 
 export const obtenerRespuestas = async (req, res, next) => {
+
+    const calcularPromedio = (respuestas) => {
+        return respuestas.map(competencia => {
+            const calificaciones = competencia.Descriptores.flatMap(descriptor => 
+                descriptor.respuestas.map(respuesta => respuesta.calificacione.valor)
+            );
+            const promedio = calificaciones.reduce((acc, val) => acc + val, 0) / calificaciones.length || 0;
+            return {
+                idCompetencia: competencia.idCompetencia,
+                nombre: competencia.nombre,
+                descripcion: competencia.descripcion,
+                tipoCompetencia: competencia.TipoCompetencium.nombre,
+                promedio,
+                fechaRegistro: competencia.createdAt
+            };
+        });
+    } 
+    
     try {
         const { idEvaluador, idColaborador, idEvaluacion } = req.query;
         const compromisos = await EvaluacionesRealizadas.findAll({
@@ -117,23 +135,6 @@ export const obtenerRespuestas = async (req, res, next) => {
             ],
             attributes: {exclude: ["updatedAt"]}
         });
-
-        const calcularPromedio = (respuestas) => {
-            return respuestas.map(competencia => {
-                const calificaciones = competencia.Descriptores.flatMap(descriptor => 
-                    descriptor.respuestas.map(respuesta => respuesta.calificacione.valor)
-                );
-                const promedio = calificaciones.reduce((acc, val) => acc + val, 0) / calificaciones.length || 0;
-                return {
-                    idCompetencia: competencia.idCompetencia,
-                    nombre: competencia.nombre,
-                    descripcion: competencia.descripcion,
-                    tipoCompetencia: competencia.TipoCompetencium.nombre,
-                    promedio,
-                    fechaRegistro: competencia.createdAt
-                };
-            });
-        } 
         res.status(200).json({ message: "Ok",compromisos, evaluacion, autoevaluacion: calcularPromedio(autoevaluacion),  });
     } catch (error) {
         next(error);

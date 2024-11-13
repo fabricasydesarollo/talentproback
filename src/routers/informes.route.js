@@ -1,7 +1,10 @@
 import { Router } from "express";
-import { informeAvancesGraficas, informeAvancesGraficasAll } from "../controllers/informes.controller.js";
+import { informeAvancesGraficas, informeAvancesGraficasAll, informeExcelAvances } from "../controllers/informes.controller.js";
 
 const router = Router()
+
+router.route('/')
+    .get(informeExcelAvances)
 
 router.route("/grafica")
     .get(informeAvancesGraficas)

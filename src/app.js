@@ -40,7 +40,7 @@ db.authenticate()
 db.sync()
     .then(() => console.log('db sycn succes!!'))
     .catch(err => console.log(err))
-const PORT = process.env.PORT || 3002
+const PORT = 3010
 
 https
   .createServer(
