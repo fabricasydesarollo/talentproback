@@ -143,6 +143,8 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
   }
 };
 
+//informes
+
 export const informeExcelAvances = async (req, res, next) => {
   try {
 
