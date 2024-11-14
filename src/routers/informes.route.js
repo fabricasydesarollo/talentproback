@@ -8,9 +8,9 @@ router.route('/')
 
 router.route("/grafica")
     .get(informeAvancesGraficas)
+
 router.route("/grafica/all")
     .get(informeAvancesGraficasAll)
-//informes
 
 
 export default router

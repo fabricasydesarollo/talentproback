@@ -22,6 +22,4 @@ router.route("/asignarCompEval").post(asignarCompetenciaEvaluacion);
 
 router.route("/asignarCompCargo").post(asignarCompetenciasCargo);
 
-router.route("/asignarCompCargo").post("");
-
 export default router;
