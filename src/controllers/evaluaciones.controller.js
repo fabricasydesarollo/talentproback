@@ -10,7 +10,7 @@ import {
   EvaluacionesRealizadas,
 } from "../models/evaluaciones.model.js";
 import { Respuestas } from "../models/respuestas.model.js";
-import { NivelCargo, Usuarios, UsuariosEvaluadores } from "../models/usuarios.model.js";
+import { NivelCargo, UsuariosEvaluadores } from "../models/usuarios.model.js";
 
 export const crearEvaluacion = async (req, res, next) => {
   try {
@@ -186,29 +186,63 @@ export const obtenerComentariosPorUsuario = async (req, res, next) => {
     if (!idColaborador || !idEvaluacion) {
       return res.status(400).json({ message: "Faltan parámetros requeridos" });
     }
-    const respuesta = await EvaluacionesRealizadas.findAll({
+    const respuesta = await EvaluacionesRealizadas.findOne({
       where: {
         idColaborador,
         idEvaluacion,
+        idTipoEvaluacion: 2
       },
       include: [
         {
           model: Compromisos,
-          as: "compromisos", // Debe coincidir con el alias en la relación
           required: false, // Esto hace que la consulta no falle si no hay compromisos
-        },
-        {
-          model: Usuarios,
-          as: "evaluador",
-          attributes: ["nombre"],
+          include: [{model: Competencias, attributes: {exclude: ["updatedAt", "createdAt","idTipo"]}}],
+          attributes: {exclude: ["idEvalRealizada", "idCompetencia", "updatedAt", "createdAt"]}
         },
       ],
+      attributes: ["idEvalRealizada","comentario"]
     });
-    res.status(200).json({ message: "Ok", data: respuesta });
+    res.status(200).json({ message: "Ok", data: respuesta || [] });
   } catch (error) {
     next(error);
   }
 };
+
+export const actualizarCompromisosPorUsuario = async (req, res, next) => {
+    try {
+      const { idColaborador, idEvaluacion, comentario,  accionesMejoramiento } = req.body;
+  
+      const updateComentario = await EvaluacionesRealizadas.update({
+        comentario
+      },{
+        where: {
+          idColaborador,
+          idEvaluacion,
+          idTipoEvaluacion: 2
+        },
+      });
+
+      if (accionesMejoramiento.length > 0) {
+        await Promise.all(
+          accionesMejoramiento.map(async acciones => {
+            const {comentario, fechaCumplimiento, estado, Retroalimentacion, idCompromiso} = acciones
+            const existe = await Compromisos.findByPk(idCompromiso)
+            if (existe) {
+              const result = await Compromisos.update(
+                { comentario, fechaCumplimiento, estado, Retroalimentacion },
+                { where: { idCompromiso } }
+              );
+              return result
+            }
+          })
+        )
+      }
+      res.status(200).json({ message: "Ok", data: updateComentario });
+    } catch (error) {
+      next(error);
+    }
+}
+
 
 export const crearCompromiso = async (req, res, next) => {
   try {
@@ -217,6 +251,7 @@ export const crearCompromiso = async (req, res, next) => {
       idEvalRealizada,
       comentario,
       estado,
+      Retroalimentacion,
       fechaCumplimiento,
     } = req.body;
     const respuesta = await Compromisos.create({
@@ -224,6 +259,7 @@ export const crearCompromiso = async (req, res, next) => {
       idEvalRealizada,
       comentario,
       estado,
+      Retroalimentacion,
       fechaCumplimiento,
     });
     res.status(200).json({ message: "Ok", data: respuesta });

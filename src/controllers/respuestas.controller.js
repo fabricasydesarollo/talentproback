@@ -1,7 +1,7 @@
 import { Competencias, Descriptores, TipoCompetencia } from "../models/competencias.model.js";
 import { Compromisos, EvaluacionesRealizadas, TipoEvaluaciones } from "../models/evaluaciones.model.js";
 import { Calificaciones, Respuestas } from "../models/respuestas.model.js"
-import { Usuarios, UsuariosEvaluadores } from "../models/usuarios.model.js";
+import { UsuariosEvaluadores } from "../models/usuarios.model.js";
 export const crearRespuesta = async (req, res, next) => {
     try {
         const {respuestas} = req.body;
