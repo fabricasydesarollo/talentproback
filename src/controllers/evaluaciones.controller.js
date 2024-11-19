@@ -66,8 +66,6 @@ export const obtenerEvaluacion = async (req, res, next) => {
         ],
       });
     } else {
-      // Si la empresa es 8, obtenemos las competencias a través de descriptores
-      console.log("Estamos consultando esto", idEmpresa, idNivelCargo);
       respuesta = await Evaluaciones.findOne({
         include: [
           {

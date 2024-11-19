@@ -1,4 +1,5 @@
 import { Op } from "sequelize"
+import { Competencias, Descriptores } from "../models/competencias.model.js"
 import { Empresas, Sedes } from "../models/empresas.model.js"
 import { Respuestas } from "../models/respuestas.model.js"
 import { NivelCargo, Perfiles, Usuarios, UsuariosEvaluadores } from "../models/usuarios.model.js"
@@ -142,7 +143,9 @@ export const crearNivelCargo = async (req, res, next) => {
 
 export const obtenerNivelCargos = async (req, res, next) => {
     try {
-        const respuesta = await NivelCargo.findAll()
+        const respuesta = await NivelCargo.findAll({
+            include: [{model: Descriptores, through: {attributes: []}}, {model: Competencias, through: {attributes: []}}]
+        })
         res.status(200).json({ message: "Ok", data: respuesta })
     } catch (error) {
         next(error)

@@ -37,6 +37,7 @@ export const informeAvancesGraficas = async (req, res, next) => {
             attributes: ['nombre'],
             through: { attributes: [] },
             required: true,
+            where:{idEmpresa}
           },
         ],
         distinct: true,
@@ -157,7 +158,7 @@ export const informeExcelAvances = async (req, res, next) => {
         { 
           model: Usuarios, 
           as: "evaluadores", 
-          attributes: ['nombre'],  // No seleccionamos atributos de Usuarios directamente
+          attributes: ['nombre', 'idUsuario'],  // No seleccionamos atributos de Usuarios directamente
           through: { attributes: [] },  // No necesitamos columnas de la tabla intermedia
           required: false  // Cambiado a false para LEFT JOIN
         },
@@ -181,7 +182,7 @@ export const informeExcelAvances = async (req, res, next) => {
           required: false, 
         }
       ],
-      group: ['Empresas.idEmpresa', 'Empresas.nombre', 'evaluadores.nombre', 'Sedes.nombre'],
+      group: ['evaluadores.idUsuario','Empresas.idEmpresa', 'Empresas.nombre', 'evaluadores.nombre', 'Sedes.nombre'],
       distinct: true,
       raw: true, 
       subQuery: false, 
@@ -192,3 +193,46 @@ export const informeExcelAvances = async (req, res, next) => {
     next(error)
   }
 }
+
+
+export const informeResultadosGraficas = async (req, res, next) => {
+  try {
+    const { idEmpresa, idSede, idTipoCargo, area } = req.query;
+
+    const resultadosPorEmpresa = await Usuarios.findAll({
+      attributes: [
+        [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('colaboradoresResp.idUsuario'))), 'Respuestas'],
+        [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('usuarios.idUsuario'))), 'Usuarios'],
+        [Sequelize.col('Empresas.nombre'), 'empresaNombre'],
+        'Empresas.idEmpresa',
+      ],
+      include: [
+        {
+          model: Usuarios,
+          as: "colaboradoresResp",
+          attributes: [],
+          required: false,
+          through: { attributes: [] },
+        },
+        {
+          model: Empresas,
+          attributes: [],
+          where: {idEmpresa},
+          through: { attributes: [] },
+          required: true,
+        },
+      ],
+      group: ['Empresas.idEmpresa', 'Empresas.nombre'],
+      distinct: true,
+      raw: true,
+      subQuery: false,
+    });
+
+    res.status(200).json({
+      message: "Dashboard",
+      data: resultadosPorEmpresa,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
