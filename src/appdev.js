@@ -37,7 +37,7 @@ db.authenticate()
     .then(() => console.log('Auth succes!'))
     .catch(err => console.log(err))
 
-db.sync()
+db.sync({alter: false})
     .then(() => console.log('db sycn succes!!'))
     .catch(err => console.log(err))
 const PORT = process.env.PORT || 3012

@@ -1,3 +1,4 @@
+import { ADMMenus, ADMPerfilesRutas, ADMPerfilesUsuarios, ADMRutas } from "./administrar.model.js"
 import { Ciudades, Departamentos } from "./ciudades.model.js"
 import { Competencias, CompetenciasEmpresas, CompetenciasNivelesCargo, Descriptores, EvaluacionCompetencias, TipoCompetencia } from "./competencias.model.js"
 import { Empresas, Hubs, Sedes } from "./empresas.model.js"
@@ -90,6 +91,14 @@ const initModels = () => {
     Compromisos.belongsTo(Competencias, {foreignKey: 'idCompetencia'})
 
 
+    ADMMenus.hasMany(ADMRutas, {foreignKey: 'idMenu'})
+    ADMRutas.belongsTo(ADMMenus, {foreignKey: 'idMenu'})
+
+    Perfiles.belongsToMany(Usuarios, {through: ADMPerfilesUsuarios, foreignKey: 'idPerfil' })
+    Usuarios.belongsToMany(Perfiles, {through: ADMPerfilesUsuarios, foreignKey: 'idUsuario' })
+
+    ADMRutas.belongsToMany(Perfiles, {through: ADMPerfilesRutas, foreignKey: 'idRuta' })
+    Perfiles.belongsToMany(ADMRutas, {through: ADMPerfilesRutas, foreignKey: 'idPerfil' })
 
 }
 export default initModels

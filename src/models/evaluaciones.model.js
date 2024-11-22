@@ -73,6 +73,11 @@ export const EvaluacionesRealizadas= db.define("EvaluacionesRealizadas", {
         type: DataTypes.TEXT,
         allowNull: false
     },
+    promedio: {
+        type: DataTypes.FLOAT,
+        defaultValue: 0,
+        allowNull: true
+    }
 });
 
 

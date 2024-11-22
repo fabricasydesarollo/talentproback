@@ -155,11 +155,11 @@ export const obtenerNivelCargos = async (req, res, next) => {
 export const obtenerUsuariosSedes = async (req, res, next) => {
     try {
         const { idUsuario } = req.query
-        const respuesta = await Usuarios.findAll({
+        const respuesta = await Usuarios.findOne({
             where: { idUsuario }, attributes: ["idUsuario", "nombre", "idPerfil", "cargo"],
 
-             include: [{ model: Sedes, attributes: ["nombre", "siglas"], through: { attributes: []}},
-              {model: Empresas, attributes: ["nombre", "urlLogo"], through: { attributes: []}}]
+             include: [{ model: Sedes, attributes: ["idSede","nombre", "siglas"], through: { attributes: [], where: { reportes: true }}},
+              {model: Empresas, attributes: ["idEmpresa","nombre", "urlLogo"], through: { attributes: [], where: { reportes: true }}}]
         })
         res.status(201).json({ message: "Ok", data: respuesta })
     } catch (error) {
@@ -190,6 +190,7 @@ export const usuariosEvaluar = async (req, res, next) => {
                     model: Usuarios, // Relación con otros usuarios a través de evaluadores
                     as: 'colaboradores', // Usa el alias 'evaluadores' para identificar los evaluadores del usuario
                     attributes: ["idUsuario", "nombre", "cargo", "fechaIngreso", "idNivelCargo"],
+                    where: {activo: true},
                     through: { attributes: ["estado"] }, include: [{model: Sedes, attributes: ["idSede", "nombre"], through: {attributes: []}}, {model: Empresas, attributes: ["idEmpresa", "nombre","urlLogo"], through: {attributes: []}}],
                 },
                 {model: Sedes, attributes: ["idSede", "nombre"], through: {attributes: []}},

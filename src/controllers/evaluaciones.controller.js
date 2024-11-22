@@ -141,7 +141,7 @@ export const obtenerTipoEvaluacion = async (req, res, next) => {
 
 export const agregarComentarioGeneral = async (req, res, next) => {
   try {
-    const { idColaborador, idEvaluador, idEvaluacion, comentario } = req.body;
+    const { idColaborador, idEvaluador, idEvaluacion, comentario,promedio } = req.body;
 
     let idTipoEvaluacion = 2;
     if (idColaborador == idEvaluador) {
@@ -169,6 +169,7 @@ export const agregarComentarioGeneral = async (req, res, next) => {
       idEvaluacion,
       idTipoEvaluacion,
       comentario,
+      promedio
     });
 
     // Respuesta exitosa

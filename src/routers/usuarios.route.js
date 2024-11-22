@@ -29,7 +29,7 @@ router.route("/nivelcargos")
     .get(obtenerNivelCargos)
     .post(crearNivelCargo)
 
-router.route("/sedes")
+router.route("/empresassedes")
     .get(obtenerUsuariosSedes)
     .post(asignarUsuariosSedes)
 

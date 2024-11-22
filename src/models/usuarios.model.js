@@ -115,6 +115,16 @@ export const UsuariosSedes = db.define("UsuariosSedes", {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    principal: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    reportes: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: false
+    }
 })
 export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
     idUsuario: {
@@ -127,4 +137,14 @@ export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    principal: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    reportes: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: false
+    }
 })
