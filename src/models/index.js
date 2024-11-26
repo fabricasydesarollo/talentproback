@@ -78,6 +78,10 @@ const initModels = () => {
     EvaluacionesRealizadas.belongsTo(Usuarios, {  foreignKey: 'idColaborador',  as: 'colaborador',});
     EvaluacionesRealizadas.belongsTo(Usuarios, {foreignKey: 'idEvaluador', as: 'evaluador', });
 
+    Usuarios.hasMany(EvaluacionesRealizadas, { foreignKey: 'idColaborador', as: 'evaluacionesComoColaborador' });
+    Usuarios.hasMany(EvaluacionesRealizadas, { foreignKey: 'idEvaluador', as: 'evaluacionesComoEvaluador' });
+
+
     EvaluacionesRealizadas.belongsTo(Evaluaciones, { foreignKey: 'idEvaluacion', as: 'evaluacion',});
     Evaluaciones.hasMany(EvaluacionesRealizadas, {foreignKey: 'idEvaluacion'})
 

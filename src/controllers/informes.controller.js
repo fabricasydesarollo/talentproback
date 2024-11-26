@@ -5,7 +5,10 @@ import {
   TipoCompetencia,
 } from "../models/competencias.model.js";
 import { Empresas, Sedes } from "../models/empresas.model.js";
-import { EvaluacionesRealizadas } from "../models/evaluaciones.model.js";
+import {
+  EvaluacionesRealizadas,
+  TipoEvaluaciones,
+} from "../models/evaluaciones.model.js";
 import { Calificaciones, Respuestas } from "../models/respuestas.model.js";
 import {
   UsuariosEmpresas,
@@ -14,7 +17,7 @@ import {
   NivelCargo,
 } from "../models/usuarios.model.js";
 
-import { calcularPromedio } from "../utils/calcularPromedios.js";
+import { calcularPromedio, transformarDatos } from "../utils/calcularPromedios.js";
 
 export const informeAvancesGraficas = async (req, res, next) => {
   try {
@@ -329,7 +332,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
 
 export const informeExcelAvancesDetalle = async (req, res, next) => {
   try {
-    const { idSede, idEmpresa } = req.query;
+    const { idSede, idEmpresa, idEvaluador } = req.query;
 
     const response = await Usuarios.findAll({
       include: [
@@ -345,34 +348,54 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
               "updatedAt",
               "idPerfil",
               "idNivelCargo",
-              "activo"
+              "activo",
             ],
           },
           through: { attributes: [] },
           include: [
             {
               model: Empresas,
-              through: { attributes: [] },
+              through: { attributes: [], where: { principal: true } },
               attributes: ["nombre"],
-              where: { idEmpresa },
+            },{
+              model: Sedes,
+              through: {attributes: [], where: {principal: true}},
+              attributes: ['nombre']
             },
             {
               model: NivelCargo,
               attributes: ["nombre"],
             },
+            {
+              model: EvaluacionesRealizadas,
+              as: "evaluacionesComoColaborador", // Alias correcto para la relación
+              attributes: ["promedio", "comentario"],
+              include: [{ model: TipoEvaluaciones, attributes: ["nombre"] }],
+            },
           ],
         },
         {
           model: Empresas,
-          through: { attributes: [] },
+          through: { attributes: [], where: { principal: true } },
           attributes: ["nombre"],
+          where: idEmpresa ? {idEmpresa} : undefined,
+        },
+        {
+          model: Sedes,
+          through: {attributes: [], where: {principal: true}},
+          attributes: ['nombre'],
+          where: idSede ? {idSede} : undefined
         },
         {
           model: NivelCargo,
           attributes: ["nombre"],
-        },{
+        },
+        {
           model: EvaluacionesRealizadas,
-        }
+          as: "evaluacionesComoColaborador", // Alias correcto para la relación
+          attributes: ["promedio", "comentario"],
+          include: [{ model: TipoEvaluaciones, attributes: ["nombre"] }],
+        },
       ],
       attributes: {
         exclude: [
@@ -382,14 +405,15 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
           "updatedAt",
           "idPerfil",
           "idNivelCargo",
-          "activo"
+          "activo",
         ],
       },
+      where: idEvaluador ? { idUsuario: idEvaluador } : undefined,
     });
 
     res.status(200).json({
       message: "informe Detalle",
-      response,
+      response: transformarDatos(response),
     });
   } catch (error) {
     next(error);

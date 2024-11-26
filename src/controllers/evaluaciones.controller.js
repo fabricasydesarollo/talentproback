@@ -305,3 +305,23 @@ export const evaluacionesDisponibles = async (req, res, next) => {
     next(error);
   }
 };
+
+export const eliminarEvaluacion = async (req, res, next) => {
+  try {
+    const { idColaborador, idEvaluador, idEvaluacion } = req.query
+    const existeRespuesta = await Respuestas.findOne({where: {idColaborador, idEvaluador, idEvaluacion}})
+    const existeRealizada = await EvaluacionesRealizadas.findOne({where: {idColaborador, idEvaluador, idEvaluacion}})
+    const existeEvaluador = await UsuariosEvaluadores.findOne({where: {idEvaluador, idUsuario: idColaborador}})
+
+    if (existeRespuesta || existeRealizada || existeEvaluador) {
+      const eliminado = await Respuestas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
+      const eliminadoRealizado = await EvaluacionesRealizadas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
+      const actualizarEvaluador = await UsuariosEvaluadores.update({estado: false}, {where: {idEvaluador, idUsuario: idColaborador}})
+      res.status(200).json({ message: "Ok", eliminado, eliminadoRealizado, actualizarEvaluador });
+    }else {
+      res.status(400).json({ message: "No existe información para actualizar" });
+    }
+  } catch (error) {
+    next(error);
+  }
+}
