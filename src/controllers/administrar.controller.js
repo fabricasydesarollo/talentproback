@@ -11,14 +11,17 @@ export const obtenerMenusPorUsuario = async (req, res, next) => {
           include: [
             {
               model: Perfiles,
+              attributes: [],
               through: { attributes: [] },
               where: { idPerfil },
               required: true
             },
           ],
+          attributes: ['idRuta','nomnbre', 'ruta'],
           required: true
         },
       ],
+      attributes: ["idMenu", 'icono', 'nombre']
     });
     res.status(200).json({ message: "ok", response });
   } catch (error) {

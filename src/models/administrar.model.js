@@ -6,8 +6,8 @@ export const ADMMenus = db.define('ADMmenus', {
     idMenu :{
         type: DataTypes.INTEGER,
         primaryKey: true,
-        allowNull: true,
-        autoIncrement: false
+        allowNull: false,
+        autoIncrement: true
     },
     nombre: {
         type: DataTypes.STRING,
@@ -26,7 +26,7 @@ export const ADMRutas = db.define('ADMrutas',{
         primaryKey: true,
         autoIncrement: true
     },
-    nomnbre: {
+    nombre: {
         type: DataTypes.STRING,
         allowNull: false
     },

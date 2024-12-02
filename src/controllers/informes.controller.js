@@ -6,6 +6,7 @@ import {
 } from "../models/competencias.model.js";
 import { Empresas, Sedes } from "../models/empresas.model.js";
 import {
+  Compromisos,
   EvaluacionesRealizadas,
   TipoEvaluaciones,
 } from "../models/evaluaciones.model.js";
@@ -17,7 +18,10 @@ import {
   NivelCargo,
 } from "../models/usuarios.model.js";
 
-import { calcularPromedio, transformarDatos } from "../utils/calcularPromedios.js";
+import {
+  calcularPromedio,
+  transformarDatos,
+} from "../utils/calcularPromedios.js";
 
 export const informeAvancesGraficas = async (req, res, next) => {
   try {
@@ -229,6 +233,7 @@ export const informeExcelAvances = async (req, res, next) => {
           "Respuestas",
         ], // Contamos usuarios distintos por idUsuario
       ],
+      where: { activo: true },
       include: [
         {
           model: Usuarios,
@@ -340,6 +345,7 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
           model: Usuarios,
           as: "colaboradores",
           required: true,
+          where: { activo: true },
           attributes: {
             exclude: [
               "contrasena",
@@ -357,10 +363,11 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
               model: Empresas,
               through: { attributes: [], where: { principal: true } },
               attributes: ["nombre"],
-            },{
+            },
+            {
               model: Sedes,
-              through: {attributes: [], where: {principal: true}},
-              attributes: ['nombre']
+              through: { attributes: [], where: { principal: true } },
+              attributes: ["nombre"],
             },
             {
               model: NivelCargo,
@@ -378,13 +385,13 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
           model: Empresas,
           through: { attributes: [], where: { principal: true } },
           attributes: ["nombre"],
-          where: idEmpresa ? {idEmpresa} : undefined,
+          where: idEmpresa ? { idEmpresa } : undefined,
         },
         {
           model: Sedes,
-          through: {attributes: [], where: {principal: true}},
-          attributes: ['nombre'],
-          where: idSede ? {idSede} : undefined
+          through: { attributes: [], where: { principal: true } },
+          attributes: ["nombre"],
+          where: idSede ? { idSede } : undefined,
         },
         {
           model: NivelCargo,
@@ -408,13 +415,60 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
           "activo",
         ],
       },
-      where: idEvaluador ? { idUsuario: idEvaluador } : undefined,
+      where: idEvaluador ? { idUsuario: idEvaluador, activo: true } : undefined,
     });
 
     res.status(200).json({
       message: "informe Detalle",
       response: transformarDatos(response),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reporteAccionesMejora = async (req, res, next) => {
+  try {
+    const reporte = await Usuarios.findAll({
+      include: [
+        {
+          model: Usuarios,
+          as: "evaluadores",
+          through: { attributes: [] },
+          attributes: ["idUsuario", "nombre", 'cargo', "area"],
+          where: { activo: true },
+        },
+        {
+          model: EvaluacionesRealizadas,
+          as: "evaluacionesComoColaborador",
+          attributes: ["comentario", "promedio"],
+          required: true,
+          include: [
+            {
+              model: Compromisos,
+              attributes: ["comentario", "estado", "fechaCumplimiento"],
+              required: true,
+              include: [
+                { model: Competencias, attributes: ["nombre"] },
+              ],
+            },
+          ],
+        },
+        {
+          model: Empresas,
+          attributes: ["idEmpresa", "nombre"],
+          through: { attributes: [], where: { principal: true }, },
+        },
+        {
+          model: Sedes,
+          attributes: ["idSede", "nombre"],
+          through: { attributes: [], where: { principal: true }, },
+        },
+      ],
+      attributes: ["idUsuario", "nombre", "cargo", "area"],
+      where: { activo: true }
+    });
+    res.status(200).json({ message: "Informe acciones de mejora", reporte });
   } catch (error) {
     next(error);
   }
