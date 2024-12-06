@@ -1,4 +1,4 @@
-import { Sequelize } from "sequelize";
+import Sequelize from "../config/db.js";
 import {
   Competencias,
   Descriptores,
@@ -199,9 +199,23 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       subQuery: false,
     });
 
+    const query = `
+    select COUNT(u.idUsuario) as Usuarios,
+      COUNT(er.idColaborador) as Respuestas from usuarios e 
+      JOIN usuariosEvaluadores ue2 ON ue2.idEvaluador = e.idUsuario
+      JOIN usuarios u ON u.idUsuario = ue2.idUsuario 
+      JOIN UsuariosEmpresas ue ON u.idUsuario = ue.idUsuario 
+      LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario 
+      LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario
+      WHERE (ISNULL(us.principal) OR us.principal = TRUE) AND ue.principal = TRUE
+    ;`;
+    const avanceGlobal = await Sequelize.query(query, {
+      type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
+    });
+
     res.status(200).json({
       message: "Informes",
-      data: { totalUsuariosEmpresa, totalUsuariosSede },
+      data: { totalUsuariosEmpresa, totalUsuariosSede, avanceGlobal },
     });
   } catch (error) {
     next(error);
@@ -213,69 +227,38 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
 export const informeExcelAvances = async (req, res, next) => {
   try {
     const { idEmpresa, idSede } = req.query;
-    const resp = await Usuarios.findAll({
-      attributes: [
-        [
-          Sequelize.fn(
-            "COUNT",
-            Sequelize.fn("DISTINCT", Sequelize.col("usuarios.idUsuario"))
-          ),
-          "Usuarios",
-        ],
-        [
-          Sequelize.fn(
-            "COUNT",
-            Sequelize.fn(
-              "DISTINCT",
-              Sequelize.col("colaboradoresResp.idUsuario")
-            )
-          ),
-          "Respuestas",
-        ], // Contamos usuarios distintos por idUsuario
-      ],
-      where: { activo: true },
-      include: [
-        {
-          model: Usuarios,
-          as: "evaluadores",
-          attributes: ["nombre", "idUsuario"], // No seleccionamos atributos de Usuarios directamente
-          through: { attributes: [] }, // No necesitamos columnas de la tabla intermedia
-          required: false, // Cambiado a false para LEFT JOIN
-        },
-        {
-          model: Usuarios,
-          as: "colaboradoresResp",
-          attributes: [],
-          through: { attributes: [] }, // No necesitamos columnas de la tabla intermedia
-          required: false, // Cambiado a false para LEFT JOIN
-        },
-        {
-          model: Empresas,
-          attributes: ["nombre"],
-          through: { attributes: [] },
-          where: idEmpresa ? { idEmpresa } : {},
-          required: true,
-        },
-        {
-          model: Sedes,
-          attributes: ["nombre"],
-          through: { attributes: [] },
-          where: idSede ? { idSede } : {},
-          required: true,
-        },
-      ],
-      group: [
-        "evaluadores.idUsuario",
-        "Empresas.idEmpresa",
-        "Empresas.nombre",
-        "evaluadores.nombre",
-        "Sedes.nombre",
-      ],
-      distinct: true,
-      raw: true,
-      subQuery: false,
+
+    const query = `
+        SELECT 
+          e.idUsuario as documento, 
+          e.nombre, 
+          e2.nombre AS empresa, 
+          s.nombre AS sede, 
+          COUNT(u.idUsuario) AS colaboradores,
+          COUNT(er.idColaborador) AS respuestas
+        FROM usuarios e 
+        LEFT JOIN usuariosEvaluadores ue2 ON ue2.idEvaluador = e.idUsuario
+        JOIN usuarios u ON u.idUsuario = ue2.idUsuario 
+        LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario
+        LEFT JOIN UsuariosEmpresas ue ON u.idUsuario = ue.idUsuario 
+        JOIN Empresas e2 ON ue.idEmpresa = e2.idEmpresa
+        LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario 
+        LEFT JOIN Sedes s ON s.idSede = us.idSede
+        WHERE (:idSede IS NULL OR s.idSede = :idSede)
+        AND (:idEmpresa IS NULL OR e2.idEmpresa = :idEmpresa)
+          AND (ISNULL(us.principal) OR us.principal = TRUE)
+          AND ue.principal = TRUE 
+        GROUP BY documento, e.nombre, empresa, sede;
+      `;
+    const replacements = {
+      idSede: idSede || null,
+      idEmpresa: idEmpresa || null,
+    };
+    const informe = await Sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
-    res.status(200).json({ message: "Informe Excel", resp });
+    res.status(200).json({ message: "Informe Excel", informe });
   } catch (error) {
     next(error);
   }
@@ -435,7 +418,7 @@ export const reporteAccionesMejora = async (req, res, next) => {
           model: Usuarios,
           as: "evaluadores",
           through: { attributes: [] },
-          attributes: ["idUsuario", "nombre", 'cargo', "area"],
+          attributes: ["idUsuario", "nombre", "cargo", "area"],
           where: { activo: true },
         },
         {
@@ -448,25 +431,23 @@ export const reporteAccionesMejora = async (req, res, next) => {
               model: Compromisos,
               attributes: ["comentario", "estado", "fechaCumplimiento"],
               required: true,
-              include: [
-                { model: Competencias, attributes: ["nombre"] },
-              ],
+              include: [{ model: Competencias, attributes: ["nombre"] }],
             },
           ],
         },
         {
           model: Empresas,
           attributes: ["idEmpresa", "nombre"],
-          through: { attributes: [], where: { principal: true }, },
+          through: { attributes: [], where: { principal: true } },
         },
         {
           model: Sedes,
           attributes: ["idSede", "nombre"],
-          through: { attributes: [], where: { principal: true }, },
+          through: { attributes: [], where: { principal: true } },
         },
       ],
       attributes: ["idUsuario", "nombre", "cargo", "area"],
-      where: { activo: true }
+      where: { activo: true },
     });
     res.status(200).json({ message: "Informe acciones de mejora", reporte });
   } catch (error) {
