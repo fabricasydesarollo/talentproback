@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { informeAvancesGraficas, informeAvancesGraficasAll, informeExcelAvances, informeExcelAvancesDetalle, informeResultadosGraficas, reporteAccionesMejora } from "../controllers/informes.controller.js";
+import { informeAvancesGraficas, informeAvancesGraficasAll, informeExcelAvances, informeExcelAvancesDetalle, informeExcelResultadosDetalle, informeParaEvaluador, informeResultadosGraficas, reporteAccionesMejora } from "../controllers/informes.controller.js";
 
 const router = Router()
 
@@ -15,9 +15,14 @@ router.route("/resultados")
 router.route("/grafica/all")
     .get(informeAvancesGraficasAll)
 router.route("/detalle")
+
     .get(informeExcelAvancesDetalle)
 router.route("/acciones")
     .get(reporteAccionesMejora)
+router.route("/resultados/detalle")
+    .get(informeExcelResultadosDetalle)
+router.route("/resultados/:idEvaluador")
+    .get(informeParaEvaluador)
 
 
 export default router

@@ -283,7 +283,7 @@ export const evaluacionesDisponibles = async (req, res, next) => {
       where: { idEvaluador, idColaborador, idEvaluacion },
     });
 
-    const cantidadEvaluados = await Respuestas.count({
+    const cantidadEvaluados = await EvaluacionesRealizadas.count({
       where: {
         idEvaluador,
       },
@@ -300,7 +300,7 @@ export const evaluacionesDisponibles = async (req, res, next) => {
     })
     res
       .status(200)
-      .json({ disponible: !disponible, porcentageEvaluados: cantidadEvaluar ? ((cantidadEvaluados * 100 ) / cantidadEvaluar) : 0});
+      .json({ disponible: !disponible, porcentageEvaluados:  ((cantidadEvaluados * 100 ) / (cantidadEvaluar + 1))});
   } catch (error) {
     next(error);
   }

@@ -23,6 +23,7 @@ export const loginUsuario = async (req, res, next) => {
           "idPerfil",
           "idNivelCargo",
           "cargo",
+          "fechaIngreso"
         ],
         include: [
           {
@@ -55,7 +56,7 @@ export const loginUsuario = async (req, res, next) => {
     } else {
       res
         .status(400)
-        .json({ message: "Error en el proceso de inicio de sesión" });
+        .json({ message: "El usuario no existe." });
     }
   } catch (error) {
     next(error);
