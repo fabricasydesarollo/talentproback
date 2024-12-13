@@ -230,7 +230,7 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     // });
 
     const replacements1 = {
-      idSede: idSede || null,
+      idEmpresa: idEmpresa || null,
     };
     const totalUsuariosEmpresa = await Sequelize.query(queryEmpresas, {
       replacements1,
