@@ -90,6 +90,10 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
     const resultados = await Promise.all(
       usuarios.map(async (usuario) => {
         const { idEvaluador, idUsuario } = usuario;
+        if (!idUsuario && idEvaluador) {
+          await UsuariosEvaluadores.update({deletedAt: null},{where: { idEvaluador, idUsuario}});
+          return { success: `Se elimina lista de usuarios ${idEvaluador}` };
+        }
         if (idEvaluador && idUsuario) {
           try {
             // Verificar si ya existe
