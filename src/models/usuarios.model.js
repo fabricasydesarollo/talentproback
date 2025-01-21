@@ -68,6 +68,10 @@ export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
     estado:{
         type: DataTypes.BOOLEAN,
         defaultValue: false
+    },
+    deletedAt: {
+        type: DataTypes.DATE,
+        defaultValue: null
     }
 });
 

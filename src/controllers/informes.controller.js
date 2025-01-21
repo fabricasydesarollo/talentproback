@@ -181,7 +181,7 @@ export const informeExcelAvances = async (req, res, next) => {
           e2.nombre AS empresa, 
           s.nombre AS sede, 
           COUNT(u.idUsuario) AS colaboradores,
-          COUNT(er.idColaborador) AS respuestas
+          SUM(CASE WHEN er.idTipoEvaluacion = 2 THEN 1 ELSE 0 END) AS respuestas
         FROM usuarios e 
         LEFT JOIN usuariosEvaluadores ue2 ON ue2.idEvaluador = e.idUsuario
         JOIN usuarios u ON u.idUsuario = ue2.idUsuario 
@@ -420,12 +420,13 @@ export const informeParaEvaluador = async(req, res, next) => {
   const {idEvaluador} = req.params
   try {
     const query = `
-    SELECT COUNT(DISTINCT u2.idUsuario) as Usuarios,
-      COUNT(DISTINCT er.idColaborador) as Respuestas from usuarios u
-      JOIN usuariosEvaluadores ue ON ue.idEvaluador = u.idUsuario 
-      JOIN usuarios u2 ON u2.idUsuario = ue.idUsuario 
-      LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario
-      WHERE u.activo = 1 AND u.idUsuario = :idEvaluador
+      SELECT 
+      COUNT(ue.estado) AS Usuarios,
+      SUM(CASE WHEN ue.estado = 1 THEN 1 ELSE 0 END) AS Respuestas
+      FROM usuarios u
+      JOIN usuariosEvaluadores ue ON u.idUsuario = ue.idEvaluador
+      JOIN usuarios u2 ON ue.idUsuario = u2.idUsuario
+      WHERE ue.idEvaluador = :idEvaluador AND u2.activo = 1
       `
       const replacements = {
         idEvaluador: idEvaluador || null,

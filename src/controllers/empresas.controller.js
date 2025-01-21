@@ -33,7 +33,7 @@ export const crearEmpresa = async (req, res, next) => {
 
 export const obtenerEmpresa = async (req, res, next) => {
     try {
-        const respuesta = await Empresas.findAll({ include: Hubs })
+        const respuesta = await Empresas.findAll({ include: [{model: Sedes, include: Ciudades}, {model: Hubs}] })
         res.status(200).json({ message: "Ok", data: respuesta })
     } catch (error) {
         next(error)

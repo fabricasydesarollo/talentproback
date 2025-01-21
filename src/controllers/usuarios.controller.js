@@ -1,4 +1,6 @@
-import { Op } from "sequelize";
+import path from 'path'
+import { fileURLToPath } from "url";
+import fs from 'fs';
 import { Competencias, Descriptores } from "../models/competencias.model.js";
 import { Empresas, Sedes } from "../models/empresas.model.js";
 import {
@@ -14,6 +16,7 @@ import {
   UsuariosEvaluadores,
 } from "../models/usuarios.model.js";
 import { hashPassword } from "../utils/hashPassword.js";
+import { Op } from 'sequelize';
 
 export const obtenerUnicoUsuario = async (req, res, next) => {
   try {
@@ -26,10 +29,10 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
           model: Usuarios,
           as: "colaboradores",
           attributes: ["idUsuario", "nombre", "cargo"],
-          through: { attributes: [] },
+          through: { attributes: [], where: {deletedAt: null} },
         },
-        { model: Empresas, through: { attributes: [] } },
-        { model: Sedes, through: { attributes: [] } },
+        { model: Empresas, through: { attributes: ["principal", "reportes"] }, attributes: {exclude: ["createdAt", "updatedAt"]} },
+        { model: Sedes, through: { attributes: ["principal", "reportes"] }, attributes: {exclude: ["createdAt", "updatedAt"]} },
       ],
     });
     const evaluacion = await EvaluacionesRealizadas.findAll({
@@ -53,7 +56,7 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
 export const obtenerColaboradores = async (req, res, next) => {
   try {
     const respuesta = await Usuarios.findAll({
-      attributes: ["idUsuario", "nombre", "cargo"],
+      attributes: ["idUsuario", "nombre", "cargo"]
     });
     res.status(200).json({ message: "Ok", data: respuesta });
   } catch (error) {
@@ -62,31 +65,68 @@ export const obtenerColaboradores = async (req, res, next) => {
 };
 export const asignarColaboradoresEvaluar = async (req, res, next) => {
   const { usuarios } = req.body;
+  if (!usuarios || usuarios.length === 0) {
+    return res.status(400).json({ error: "El cuerpo de la solicitud debe contener usuarios." });
+  }
   try {
-    // Procesamos cada usuario en paralelo
+    //1. Extraer todos los idUsuarios que existen de ese idEvaluador
+
+    const idEvaluador = usuarios[0].idEvaluador;
+    const registro = await UsuariosEvaluadores.findAll({ where: { idEvaluador } });
+    const eliminar = registro.filter(
+      (reg) => !usuarios.some((usuario) => usuario.idUsuario === reg.idUsuario)
+    );
+
+    if (eliminar.length > 0) {
+      const idsEliminar = eliminar.map((reg) => reg.idUsuario); // Extraer IDs a eliminar
+      if (idsEliminar.length > 0) {
+        await UsuariosEvaluadores.update(
+          { deletedAt: new Date() },
+          { where: { idUsuario: { [Op.in]: idsEliminar }, idEvaluador } }
+        );
+      }
+    }
+
     const resultados = await Promise.all(
       usuarios.map(async (usuario) => {
         const { idEvaluador, idUsuario } = usuario;
         if (idEvaluador && idUsuario) {
           try {
-            await UsuariosEvaluadores.destroy({ where: { idEvaluador } });
-            await UsuariosEvaluadores.create({ idEvaluador, idUsuario });
-            return {
-              success: `Usuario ${idUsuario} asignado a evaluador ${idEvaluador}`,
-            };
+            // Verificar si ya existe
+            const existe = await UsuariosEvaluadores.findOne({
+              where: { idEvaluador, idUsuario },
+            });
+            if (existe) {
+              await UsuariosEvaluadores.update({deletedAt: null},{where: { idEvaluador, idUsuario}});
+            }
+            if (!existe) {
+              // Crear solo si no existe
+              await UsuariosEvaluadores.create({ idEvaluador, idUsuario});
+            }
+            return { success: `Usuario ${idUsuario} asignado a evaluador ${idEvaluador}` };
           } catch (error) {
-            return {
-              error: `Error al asignar usuario ${idUsuario} a evaluador ${idEvaluador}`,
-            };
+            return { error: `Error al asignar usuario ${idUsuario} a evaluador ${idEvaluador}: ${error.message}` };
           }
         } else {
-          return { error: "idEvaluador es requerido para la operación" };
+          return { error: "idEvaluador e idUsuario son requeridos para la operación" };
         }
       })
     );
-
     const errores = resultados.filter((result) => result.error);
     const exitos = resultados.filter((result) => result.success);
+
+    const __filename = fileURLToPath(import.meta.url); // Obtiene el nombre completo del archivo
+    const __dirname = path.dirname(__filename)  
+
+    const logFilePath = path.resolve(__dirname, "../log/events.log");
+    const currentDateTime = new Date().toISOString();
+    const logMessage = `${currentDateTime} - ERROR: No se encontró ningún registro para actualizar. exitos: ${exitos} - errores: ${errores}\n`;
+        
+    fs.appendFile(logFilePath, logMessage, (err) => {
+        if (err) {
+            console.error("Error al escribir en el archivo de log:", err);
+        }
+    });
 
     if (errores.length > 0) {
       return res.status(400).json({ errors: errores.map((e) => e.error) });
@@ -288,7 +328,7 @@ export const usuariosEvaluar = async (req, res, next) => {
             "idNivelCargo",
           ],
           where: { activo: true },
-          through: { attributes: ["estado"] },
+          through: { attributes: ["estado"], where: {deletedAt: null} },
           include: [
             {
               model: Sedes,
