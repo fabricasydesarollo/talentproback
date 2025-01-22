@@ -38,19 +38,6 @@ export const crearRespuesta = async (req, res, next) => {
                     },
                 }
             );
-        
-            const logFilePath = path.join(__dirname, "./log/events.log");
-            const currentDateTime = new Date().toISOString();
-        
-            if (updatedRows === 0) {
-                const logMessage = `${currentDateTime} - ERROR: No se encontró ningún registro para actualizar. Evaluador: ${respuestas[0].idEvaluador}, Colaborador: ${respuestas[0].idColaborador}\n`;
-        
-                fs.appendFile(logFilePath, logMessage, (err) => {
-                    if (err) {
-                        console.error("Error al escribir en el archivo de log:", err);
-                    }
-                });
-            }
             // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
             res.status(200).json({ message: "Ok" });
         }else{

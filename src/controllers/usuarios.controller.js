@@ -115,19 +115,6 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
     const errores = resultados.filter((result) => result.error);
     const exitos = resultados.filter((result) => result.success);
 
-    const __filename = fileURLToPath(import.meta.url); // Obtiene el nombre completo del archivo
-    const __dirname = path.dirname(__filename)  
-
-    const logFilePath = path.resolve(__dirname, "../log/events.log");
-    const currentDateTime = new Date().toISOString();
-    const logMessage = `${currentDateTime} - ERROR: No se encontró ningún registro para actualizar. exitos: ${exitos} - errores: ${errores}\n`;
-        
-    fs.appendFile(logFilePath, logMessage, (err) => {
-        if (err) {
-            console.error("Error al escribir en el archivo de log:", err);
-        }
-    });
-
     if (errores.length > 0) {
       return res.status(400).json({ errors: errores.map((e) => e.error) });
     }
