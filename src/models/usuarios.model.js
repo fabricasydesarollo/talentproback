@@ -17,6 +17,10 @@ export const Usuarios = db.define('usuarios', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    area: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     correo: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -40,20 +44,16 @@ export const Usuarios = db.define('usuarios', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
-    activo: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: 1,
-        allowNull: true
-    },
     defaultContrasena: {
         type: DataTypes.BOOLEAN,
         defaultValue: 1,
         allowNull: true
     },
-    area: {
-        type: DataTypes.STRING,
-        allowNull: false
-    }
+    activo: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: 1,
+        allowNull: true
+    },
 })
 
 export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
