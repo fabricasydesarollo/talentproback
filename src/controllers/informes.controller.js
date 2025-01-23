@@ -111,9 +111,10 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
   try {
     const { idSede, idEmpresa } = req.query;
     const querySedes = `
-    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT r.idColaborador) as Respuestas, s.idSede, s.nombre 
+    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) as Autoevaluacion,
+    COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 2 THEN er.idColaborador END) as Evaluacion, s.idSede, s.nombre 
     FROM usuarios u 
-    LEFT JOIN respuestas r ON r.idColaborador = u.idUsuario 
+    LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario 
     LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario
     LEFT JOIN Sedes s ON s.idSede = us.idSede 
     WHERE 
@@ -131,14 +132,15 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
     const queryEmpresas = `
-    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT r.idColaborador) as Respuestas, e.idEmpresa, e.nombre
-      FROM usuarios u 
-      LEFT JOIN respuestas r ON r.idColaborador = u.idUsuario 
-      JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario
-      LEFT JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
-      WHERE u.activo = 1 AND ue2.principal = 1 AND (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa)
-      GROUP BY 
-        e.nombre, e.idEmpresa;
+    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) as Autoevaluacion,
+    COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 2 THEN er.idColaborador END) as Evaluacion, e.idEmpresa, e.nombre
+    FROM usuarios u 
+    LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario 
+    JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario
+    LEFT JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
+    WHERE u.activo = 1 AND ue2.principal = 1 AND (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa)
+    GROUP BY 
+      e.nombre, e.idEmpresa;
       `
 
     const replacements1 = {
@@ -149,11 +151,17 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
     const query = `
-    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios,
-    COUNT(er.idColaborador) as Respuestas from usuarios u
-    JOIN UsuariosEmpresas ue ON u.idUsuario = ue.idUsuario 
-    LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario
-    WHERE u.activo = 1 AND ue.principal = TRUE
+    SELECT 
+    COUNT(DISTINCT u.idUsuario) AS Usuarios,
+    COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) AS Autoevaluacion,
+    COUNT(CASE WHEN er.idTipoEvaluacion = 2 THEN er.idColaborador END) AS Evaluacion
+    FROM 
+        usuarios u
+    LEFT JOIN 
+        EvaluacionesRealizadas er 
+    ON 
+        er.idColaborador = u.idUsuario 
+        AND u.activo = 1;
     ;`;
     const avanceGlobal = await Sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
@@ -420,14 +428,14 @@ export const informeParaEvaluador = async(req, res, next) => {
   const {idEvaluador} = req.params
   try {
     const query = `
-      SELECT 
-      COUNT(ue.estado) AS Usuarios,
-      SUM(CASE WHEN ue.estado = 1 THEN 1 ELSE 0 END) AS Respuestas
-      FROM usuarios u
-      JOIN usuariosEvaluadores ue ON u.idUsuario = ue.idEvaluador
-      JOIN usuarios u2 ON ue.idUsuario = u2.idUsuario
-      WHERE ue.idEvaluador = :idEvaluador AND u2.activo = 1
-      `
+        SELECT 
+        COUNT(DISTINCT ue.idUsuario) AS Usuarios,
+        COUNT(DISTINCT er.idColaborador) AS Respuestas
+        FROM usuarios u
+        JOIN usuariosEvaluadores ue ON u.idUsuario = ue.idEvaluador
+        JOIN usuarios u2 ON ue.idUsuario = u2.idUsuario
+        LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = ue.idUsuario AND er.idTipoEvaluacion = 2
+        WHERE ue.idEvaluador = :idEvaluador AND u2.activo = 1 AND ue.deletedAt IS NULL `
       const replacements = {
         idEvaluador: idEvaluador || null,
       };

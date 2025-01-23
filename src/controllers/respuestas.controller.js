@@ -4,6 +4,7 @@ import { Calificaciones, Respuestas } from "../models/respuestas.model.js"
 import { UsuariosEvaluadores } from "../models/usuarios.model.js";
 import fs from 'fs'
 import path from 'path'
+import { literal, Op } from "sequelize";
 
 export const crearRespuesta = async (req, res, next) => {
     try {
@@ -79,7 +80,6 @@ export const obtenerRespuestas = async (req, res, next) => {
             attributes: ["comentario", "createdAt"]
         })
         let evaluacion
-        if (idEvaluador !== idColaborador) {
             const respuesta = await Competencias.findAll({
                 include: [
                     {
@@ -89,9 +89,10 @@ export const obtenerRespuestas = async (req, res, next) => {
                             {
                                 model: Respuestas,
                                 where: {
-                                    idEvaluador,
-                                    idColaborador,
-                                    idEvaluacion
+                                    [Op.and]: [literal('idEvaluador != idColaborador'),
+                                    {idColaborador},
+                                    {idEvaluacion}
+                                ] ,
                                 },
                                 attributes: ['idCalificacion'],
                                 include: [
@@ -112,7 +113,6 @@ export const obtenerRespuestas = async (req, res, next) => {
                 attributes: {exclude: ["updatedAt"]}
             })
             evaluacion = calcularPromedio(respuesta)
-        }
         const autoevaluacion = await Competencias.findAll({
             include: [
                 {
