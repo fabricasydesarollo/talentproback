@@ -8,7 +8,7 @@ const router = Router()
 
 router.route("/")
     .get(obtenerUnicoUsuario)
-    .post(validateRequest(schemaUser), crearUsuario)
+    .post(crearUsuario)
 
 router.route("/colaboradores")
     .get(obtenerColaboradores)

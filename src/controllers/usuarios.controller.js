@@ -1,6 +1,6 @@
-import path from 'path'
+import path from "path";
 import { fileURLToPath } from "url";
-import fs from 'fs';
+import fs from "fs";
 import { Competencias, Descriptores } from "../models/competencias.model.js";
 import { Empresas, Sedes } from "../models/empresas.model.js";
 import {
@@ -16,7 +16,7 @@ import {
   UsuariosEvaluadores,
 } from "../models/usuarios.model.js";
 import { hashPassword } from "../utils/hashPassword.js";
-import { Op } from 'sequelize';
+import { Op } from "sequelize";
 
 export const obtenerUnicoUsuario = async (req, res, next) => {
   try {
@@ -29,10 +29,18 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
           model: Usuarios,
           as: "colaboradores",
           attributes: ["idUsuario", "nombre", "cargo"],
-          through: { attributes: [], where: {deletedAt: null} },
+          through: { attributes: [], where: { deletedAt: null } },
         },
-        { model: Empresas, through: { attributes: ["principal", "reportes"] }, attributes: {exclude: ["createdAt", "updatedAt"]} },
-        { model: Sedes, through: { attributes: ["principal", "reportes"] }, attributes: {exclude: ["createdAt", "updatedAt"]} },
+        {
+          model: Empresas,
+          through: { attributes: ["principal", "reportes"] },
+          attributes: { exclude: ["createdAt", "updatedAt"] },
+        },
+        {
+          model: Sedes,
+          through: { attributes: ["principal", "reportes"] },
+          attributes: { exclude: ["createdAt", "updatedAt"] },
+        },
       ],
     });
     const evaluacion = await EvaluacionesRealizadas.findAll({
@@ -56,7 +64,7 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
 export const obtenerColaboradores = async (req, res, next) => {
   try {
     const respuesta = await Usuarios.findAll({
-      attributes: ["idUsuario", "nombre", "cargo"]
+      attributes: ["idUsuario", "nombre", "cargo"],
     });
     res.status(200).json({ message: "Ok", data: respuesta });
   } catch (error) {
@@ -66,13 +74,17 @@ export const obtenerColaboradores = async (req, res, next) => {
 export const asignarColaboradoresEvaluar = async (req, res, next) => {
   const { usuarios } = req.body;
   if (!usuarios || usuarios.length === 0) {
-    return res.status(400).json({ error: "El cuerpo de la solicitud debe contener usuarios." });
+    return res
+      .status(400)
+      .json({ error: "El cuerpo de la solicitud debe contener usuarios." });
   }
   try {
     //1. Extraer todos los idUsuarios que existen de ese idEvaluador
 
     const idEvaluador = usuarios[0].idEvaluador;
-    const registro = await UsuariosEvaluadores.findAll({ where: { idEvaluador } });
+    const registro = await UsuariosEvaluadores.findAll({
+      where: { idEvaluador },
+    });
     const eliminar = registro.filter(
       (reg) => !usuarios.some((usuario) => usuario.idUsuario === reg.idUsuario)
     );
@@ -90,6 +102,13 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
     const resultados = await Promise.all(
       usuarios.map(async (usuario) => {
         const { idEvaluador, idUsuario } = usuario;
+        if (!idUsuario && idEvaluador) {
+          await UsuariosEvaluadores.update(
+            { deletedAt: null },
+            { where: { idEvaluador, idUsuario } }
+          );
+          return { success: `Se elimina lista de usuarios ${idEvaluador}` };
+        }
         if (idEvaluador && idUsuario) {
           try {
             // Verificar si ya existe
@@ -97,18 +116,27 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
               where: { idEvaluador, idUsuario },
             });
             if (existe) {
-              await UsuariosEvaluadores.update({deletedAt: null},{where: { idEvaluador, idUsuario}});
+              await UsuariosEvaluadores.update(
+                { deletedAt: null },
+                { where: { idEvaluador, idUsuario } }
+              );
             }
             if (!existe) {
               // Crear solo si no existe
-              await UsuariosEvaluadores.create({ idEvaluador, idUsuario});
+              await UsuariosEvaluadores.create({ idEvaluador, idUsuario });
             }
-            return { success: `Usuario ${idUsuario} asignado a evaluador ${idEvaluador}` };
+            return {
+              success: `Usuario ${idUsuario} asignado a evaluador ${idEvaluador}`,
+            };
           } catch (error) {
-            return { error: `Error al asignar usuario ${idUsuario} a evaluador ${idEvaluador}: ${error.message}` };
+            return {
+              error: `Error al asignar usuario ${idUsuario} a evaluador ${idEvaluador}: ${error.message}`,
+            };
           }
         } else {
-          return { error: "idEvaluador e idUsuario son requeridos para la operación" };
+          return {
+            error: "idEvaluador e idUsuario son requeridos para la operación",
+          };
         }
       })
     );
@@ -143,7 +171,7 @@ export const actualizarUsuario = async (req, res, next) => {
       defaultContrasena,
     } = req.body;
 
-    if (!nombre || !cargo || !correo || !idPerfil || !idNivelCargo ||!area) {
+    if (!nombre || !cargo || !correo || !idPerfil || !idNivelCargo || !area) {
       return res.status(400).json({ message: "Faltan campos obligatorios" });
     }
 
@@ -190,10 +218,17 @@ export const crearUsuario = async (req, res, next) => {
       nombre,
       cargo,
       correo,
+      area,
       contrasena,
       idPerfil,
+      fechaIngreso,
       idNivelCargo,
     } = req.body;
+
+    if (!idUsuario || !nombre || !cargo || !contrasena || !idPerfil || !idNivelCargo || !area || !fechaIngreso) {
+      res.status(400).json({message: "Faltan datos necesarios"})
+    }
+
     const password = await hashPassword(contrasena);
     const respuesta = await Usuarios.create({
       idUsuario,
@@ -203,6 +238,10 @@ export const crearUsuario = async (req, res, next) => {
       contrasena: password,
       idPerfil,
       idNivelCargo,
+      area,
+      fechaIngreso,
+      defaultContrasena: true,
+      activo: true
     });
     res.status(201).json({ message: "Ok", data: respuesta });
   } catch (error) {
@@ -315,7 +354,7 @@ export const usuariosEvaluar = async (req, res, next) => {
             "idNivelCargo",
           ],
           where: { activo: true },
-          through: { attributes: ["estado"], where: {deletedAt: null} },
+          through: { attributes: ["estado"], where: { deletedAt: null } },
           include: [
             {
               model: Sedes,
