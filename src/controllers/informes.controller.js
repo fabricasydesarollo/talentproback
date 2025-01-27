@@ -153,15 +153,18 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     const query = `
     SELECT 
     COUNT(DISTINCT u.idUsuario) AS Usuarios,
-    COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) AS Autoevaluacion,
-    COUNT(CASE WHEN er.idTipoEvaluacion = 2 THEN er.idColaborador END) AS Evaluacion
-    FROM 
-        usuarios u
-    LEFT JOIN 
-        EvaluacionesRealizadas er 
-    ON 
-        er.idColaborador = u.idUsuario 
-        AND u.activo = 1;
+    COUNT(DISTINCT er.idColaborador) AS Autoevaluacion,
+    COUNT(CASE WHEN ue.estado = 1 THEN 1 END) AS Evaluacion FROM 
+    usuarios u LEFT JOIN EvaluacionesRealizadas er 
+    ON er.idColaborador = u.idUsuario 
+    AND er.idTipoEvaluacion = 1 
+    AND u.activo = 1
+JOIN 
+    usuariosEvaluadores ue 
+    ON ue.idUsuario = u.idUsuario 
+    AND ue.deletedAt IS NULL 
+WHERE 
+    u.activo = 1
     ;`;
     const avanceGlobal = await Sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
