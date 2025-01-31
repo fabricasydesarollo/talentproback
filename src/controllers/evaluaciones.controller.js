@@ -295,7 +295,7 @@ export const evaluacionesDisponibles = async (req, res, next) => {
     const query = `SELECT COUNT(ue.idUsuario) AS total 
       FROM usuariosEvaluadores ue 
       JOIN usuarios u ON u.idUsuario = ue.idUsuario 
-      WHERE u.activo = 1 AND ue.idEvaluador = :idEvaluador;`
+      WHERE u.activo = 1 AND ue.idEvaluador = :idEvaluador AND ue.deletedAt IS NULL;`
       const replacements = {
         idEvaluador: idEvaluador || null,
       };
