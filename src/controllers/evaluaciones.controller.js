@@ -11,6 +11,7 @@ import {
 } from "../models/evaluaciones.model.js";
 import { Respuestas } from "../models/respuestas.model.js";
 import { NivelCargo, UsuariosEvaluadores } from "../models/usuarios.model.js";
+import Sequelize from "../config/db.js";
 
 export const crearEvaluacion = async (req, res, next) => {
   try {
@@ -291,13 +292,21 @@ export const evaluacionesDisponibles = async (req, res, next) => {
       col:'idColaborador'
     });
 
-    const cantidadEvaluar = await UsuariosEvaluadores.count({
-        where: {
-            idEvaluador
-        },
-        distinct: true,
-        col: 'idUsuario'
-    })
+    const query = `SELECT COUNT(ue.idUsuario) AS total 
+      FROM usuariosEvaluadores ue 
+      JOIN usuarios u ON u.idUsuario = ue.idUsuario 
+      WHERE u.activo = 1 AND ue.idEvaluador = :idEvaluador;`
+      const replacements = {
+        idEvaluador: idEvaluador || null,
+      };
+
+    const cantidadEvaluarResult = await Sequelize.query(query, {
+        replacements,
+        type: Sequelize.QueryTypes.SELECT,
+      });
+
+    const cantidadEvaluar = cantidadEvaluarResult[0]?.total || 0;
+      
     res
       .status(200)
       .json({ disponible: !disponible, porcentageEvaluados:  ((cantidadEvaluados * 100 ) / (cantidadEvaluar + 1))});

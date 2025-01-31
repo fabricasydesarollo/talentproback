@@ -48,3 +48,30 @@ export function transformarDatos(evaluadores) {
       }))
     );
   }
+
+
+export const calcularPromedioGeneral = (array) => {
+    const agrupar = array.reduce((acc, curr) => {
+        if (acc[curr.idCompetencia]) {
+          acc[curr.idCompetencia].total += curr.valor;
+          acc[curr.idCompetencia].count += 1;
+      } else {
+          acc[curr.idCompetencia] = {
+              nombre: curr.nombre,
+              total: curr.valor,
+              count: 1
+          };
+      }
+      return acc;
+  },{})
+  const datosCalculados = Object.keys(agrupar).map(idCompetencia => {
+      const item = agrupar[idCompetencia];
+      const average = item.total / item.count; // Promedio
+      return {
+          idCompetencia: parseInt(idCompetencia),
+          nombre: item.nombre,
+          promedio: Number(average.toFixed(1))
+      };
+  });
+  return datosCalculados
+  }

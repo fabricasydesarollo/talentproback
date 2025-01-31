@@ -123,7 +123,7 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
         AND (ISNULL(us.principal) OR us.principal = 1)
     GROUP BY 
         s.idSede, s.nombre;
-      `
+      `;
     const replacements = {
       idSede: idSede || null,
     };
@@ -141,7 +141,7 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     WHERE u.activo = 1 AND ue2.principal = 1 AND (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa)
     GROUP BY 
       e.nombre, e.idEmpresa;
-      `
+      `;
 
     const replacements1 = {
       idEmpresa: idEmpresa || null,
@@ -186,26 +186,25 @@ export const informeExcelAvances = async (req, res, next) => {
     const { idEmpresa, idSede } = req.query;
 
     const query = `
-        SELECT 
-          e.idUsuario as documento, 
-          e.nombre, 
-          e2.nombre AS empresa, 
-          s.nombre AS sede, 
-          COUNT(u.idUsuario) AS colaboradores,
-          SUM(CASE WHEN er.idTipoEvaluacion = 2 THEN 1 ELSE 0 END) AS respuestas
-        FROM usuarios e 
-        LEFT JOIN usuariosEvaluadores ue2 ON ue2.idEvaluador = e.idUsuario
-        JOIN usuarios u ON u.idUsuario = ue2.idUsuario 
-        LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario
-        LEFT JOIN UsuariosEmpresas ue ON u.idUsuario = ue.idUsuario 
-        JOIN Empresas e2 ON ue.idEmpresa = e2.idEmpresa
-        LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario 
-        LEFT JOIN Sedes s ON s.idSede = us.idSede
-        WHERE (:idSede IS NULL OR s.idSede = :idSede)
-        AND (:idEmpresa IS NULL OR e2.idEmpresa = :idEmpresa)
-          AND (ISNULL(us.principal) OR us.principal = TRUE)
-          AND ue.principal = TRUE 
-        GROUP BY documento, e.nombre, empresa, sede;
+    SELECT 
+    e.idUsuario as documento, 
+    e.nombre, 
+    e2.nombre AS empresa, 
+    s.nombre AS sede, 
+    COUNT(ue2.idUsuario) AS colaboradores,
+    COUNT(CASE WHEN ue2.estado = 1 THEN 1 END) AS respuestas
+  FROM usuarios e 
+  LEFT JOIN usuariosEvaluadores ue2 ON ue2.idEvaluador = e.idUsuario
+  JOIN usuarios u ON u.idUsuario = ue2.idUsuario 
+  LEFT JOIN UsuariosEmpresas ue ON u.idUsuario = ue.idUsuario 
+  JOIN Empresas e2 ON ue.idEmpresa = e2.idEmpresa
+  LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario 
+  LEFT JOIN Sedes s ON s.idSede = us.idSede
+  WHERE (:idSede IS NULL OR s.idSede = :idSede)
+  AND (:idEmpresa IS NULL OR e2.idEmpresa = :idEmpresa)
+    AND (ISNULL(us.principal) OR us.principal = TRUE)
+    AND ue.principal = TRUE AND ue2.deletedAt IS NULL AND u.activo = 1
+  GROUP BY documento, e.nombre, empresa, sede;
       `;
     const replacements = {
       idSede: idSede || null,
@@ -233,7 +232,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
             {
               model: Respuestas,
               attributes: ["idCalificacion"],
-              where: idEvaluador ? {idEvaluador} : undefined,
+              where: idEvaluador ? { idEvaluador } : undefined,
               include: [
                 {
                   model: Calificaciones,
@@ -305,21 +304,21 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
     LEFT JOIN TipoEvaluaciones te2 ON te2.idTipoEvaluacion = er2.idTipoEvaluacion
     WHERE (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) 
     AND ue3.principal = 1 AND ue2.principal = 1 AND (us.principal IS NULL OR us.principal = 1) 
-    AND (us2.principal IS NULL OR us2.principal = 1);`
+    AND (us2.principal IS NULL OR us2.principal = 1);`;
 
     const replacements = {
       idEmpresa: idEmpresa || null,
       idSede: idSede || null,
     };
-      const informe = await Sequelize.query(query, {
-        replacements,
-        type: Sequelize.QueryTypes.SELECT,
-      });
+    const informe = await Sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
+    });
 
-      res.status(200).json({
-        message: "informe Detalle",
-        informe
-      });
+    res.status(200).json({
+      message: "informe Detalle",
+      informe,
+    });
   } catch (error) {
     next(error);
   }
@@ -370,8 +369,7 @@ export const reporteAccionesMejora = async (req, res, next) => {
   }
 };
 
-
-export const informeExcelResultadosDetalle = async(req, res, next) => {
+export const informeExcelResultadosDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador } = req.query;
     const query = `
@@ -405,14 +403,13 @@ export const informeExcelResultadosDetalle = async(req, res, next) => {
         ue3.principal = 1 AND ue2.principal = 1 AND (us.principal IS NULL OR us.principal = 1) 
         AND (us2.principal IS NULL OR us2.principal = 1)
         GROUP BY idEvaluador, nombreEvaluador, cargoEval,areaEval,fechaIngresoEval,	empresaEval,sedeEval,promedioEval,tipoEval, competencia,nivelCargoEval,nivelCargo,
-      u2.idUsuario , u2.nombre , u2.cargo, u2.area,fechaIngreso,empresa, sede,er2.promedio,tipo;`
+      u2.idUsuario , u2.nombre , u2.cargo, u2.area,fechaIngreso,empresa, sede,er2.promedio,tipo;`;
 
-
-  const replacements = {
-    idEmpresa: idEmpresa || null,
-    idSede: idSede || null,
-    idEvaluador: idEvaluador || null,
-  };
+    const replacements = {
+      idEmpresa: idEmpresa || null,
+      idSede: idSede || null,
+      idEvaluador: idEvaluador || null,
+    };
     const informe = await Sequelize.query(query, {
       replacements,
       type: Sequelize.QueryTypes.SELECT,
@@ -420,15 +417,15 @@ export const informeExcelResultadosDetalle = async(req, res, next) => {
 
     res.status(200).json({
       message: "informe Resultados Detalle",
-      informe
+      informe,
     });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-export const informeParaEvaluador = async(req, res, next) => {
-  const {idEvaluador} = req.params
+export const informeParaEvaluador = async (req, res, next) => {
+  const { idEvaluador } = req.params;
   try {
     const query = `
         SELECT 
@@ -438,20 +435,20 @@ export const informeParaEvaluador = async(req, res, next) => {
         JOIN usuariosEvaluadores ue ON u.idUsuario = ue.idEvaluador
         JOIN usuarios u2 ON ue.idUsuario = u2.idUsuario
         LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = ue.idUsuario AND er.idTipoEvaluacion = 2
-        WHERE ue.idEvaluador = :idEvaluador AND u2.activo = 1 AND ue.deletedAt IS NULL `
-      const replacements = {
-        idEvaluador: idEvaluador || null,
-      };
-        const informe = await Sequelize.query(query, {
-          replacements,
-          type: Sequelize.QueryTypes.SELECT,
-        });
-    
-        res.status(200).json({
-          message: "informe avances",
-          data: informe
-        });
+        WHERE ue.idEvaluador = :idEvaluador AND u2.activo = 1 AND ue.deletedAt IS NULL `;
+    const replacements = {
+      idEvaluador: idEvaluador || null,
+    };
+    const informe = await Sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
+    });
+
+    res.status(200).json({
+      message: "informe avances",
+      data: informe,
+    });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};

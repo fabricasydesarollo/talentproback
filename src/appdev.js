@@ -18,7 +18,7 @@ app.use(cookieParser())
 
 
 app.use(cors({
-    origin: ["https://talentprozentria.netlify.app", "http://localhost:5173"],
+    origin: ["https://talentprozentria.netlify.app", "http://localhost:5173", "https://talentprozentriaqa.netlify.app"],
     credentials: true
 }))
 

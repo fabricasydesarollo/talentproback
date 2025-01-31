@@ -1,11 +1,13 @@
 import { Router } from "express";
-import { crearCalificacion, crearRespuesta, obtenerCalificacion, obtenerRespuestas } from "../controllers/respuestas.controller.js";
+import { crearCalificacion, crearRespuesta, obtenerCalificacion, obtenerRespuestas, respuestasGeneral } from "../controllers/respuestas.controller.js";
 
 const router = Router()
 
 router.route("/")
     .get(obtenerRespuestas)
     .post(crearRespuesta)
+router.route("/general")
+    .get(respuestasGeneral)
 
 router.route("/calificacion")
     .get(obtenerCalificacion)
