@@ -15,7 +15,6 @@ router.route("/resultados")
 router.route("/grafica/all")
     .get(informeAvancesGraficasAll)
 router.route("/detalle")
-
     .get(informeExcelAvancesDetalle)
 router.route("/acciones")
     .get(reporteAccionesMejora)

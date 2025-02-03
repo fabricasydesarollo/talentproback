@@ -280,32 +280,35 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
     const { idSede, idEmpresa, idEvaluador } = req.query;
 
     const query = `
-    SELECT u.idUsuario as idEvaluador, u.nombre as nombreEvaluador, u.cargo as cargoEval, u.area as areaEval, nc.nombre as nivelCargoEval, DATE_FORMAT(u.fechaIngreso, '%Y-%m-%d') as fechaIngresoEval,
-    e.nombre as empresaEval, s.nombre  as sedeEval,
-    er.promedio as promedioEval, te.nombre as tipoEval,
-    u2.idUsuario , u2.nombre , u2.cargo, u2.area, nc2.nombre as nivelCargo, DATE_FORMAT(u2.fechaIngreso, '%Y-%m-%d') as fechaIngreso, e2.nombre as empresa, s2.nombre as sede,
-    er2.promedio, te2.nombre as tipo 
-    FROM usuarios u 
-    JOIN nivelCargos nc2 on nc2.idNivelCargo = u.idNivelCargo 
-    LEFT JOIN usuariosEvaluadores ue ON u.idUsuario = ue.idEvaluador 
-    LEFT JOIN usuarios u2 ON u2.idUsuario = ue.idUsuario
-    JOIN nivelCargos nc on nc.idNivelCargo = u2.idNivelCargo  
-    LEFT JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario
-    LEFT JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
-    LEFT JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario 
-    LEFT JOIN Empresas e2 ON e2.idEmpresa = ue3.idEmpresa 
-    LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario
-    LEFT JOIN Sedes s ON s.idSede = us.idSede
-    LEFT JOIN UsuariosSedes us2 ON us2.idUsuario = u2.idUsuario 
-    LEFT JOIN Sedes s2 ON s2.idSede = us2.idSede 
-    LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario
-    LEFT JOIN TipoEvaluaciones te ON te.idTipoEvaluacion = er.idTipoEvaluacion 
-    LEFT JOIN EvaluacionesRealizadas er2 ON er2.idColaborador = u2.idUsuario 
-    LEFT JOIN TipoEvaluaciones te2 ON te2.idTipoEvaluacion = er2.idTipoEvaluacion
-    WHERE (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) 
-    AND ue3.principal = 1 AND ue2.principal = 1 AND (us.principal IS NULL OR us.principal = 1) 
-    AND (us2.principal IS NULL OR us2.principal = 1);`;
-
+          SELECT
+        u2.idUsuario as "ID_Evaluador" ,
+          u2.nombre AS "Evaluador",
+          u2.cargo AS "cargo_evaluador",
+          e2.nombre as empresa_evaluador,
+          u.idUsuario AS "ID_Colaborador",
+          u.nombre AS "Colaborador",
+          u.cargo,
+          u.area,
+          e.nombre as Empresa,
+          s.nombre as Sede,
+          DATE_FORMAT(u.fechaIngreso, '%Y-%m-%d') as "fechaIngreso",
+          ROUND(AVG(c_auto.valor), 2) AS "AUTOEVALUACION",
+          ROUND(AVG(c_eval.valor), 2) AS "EVALUACION"
+      FROM usuarios u 
+      JOIN usuariosEvaluadores ue ON ue.idUsuario = u.idUsuario AND ue.deletedAt IS NULL 
+      JOIN usuarios u2 ON ue.idEvaluador = u2.idUsuario
+      LEFT JOIN respuestas auto ON auto.idEvaluador = u.idUsuario AND auto.idColaborador = u.idUsuario 
+      LEFT JOIN calificaciones c_auto ON c_auto.idCalificacion = auto.idCalificacion 
+      LEFT JOIN respuestas eval ON eval.idEvaluador = ue.idEvaluador AND eval.idColaborador = ue.idUsuario 
+      LEFT JOIN calificaciones c_eval ON c_eval.idCalificacion = eval.idCalificacion 
+      JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal  = 1
+      JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
+      LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
+      LEFT JOIN Sedes s ON s.idSede = us.idSede 
+      JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario 
+      JOIN Empresas e2 ON e2.idEmpresa = ue3.idEmpresa AND ue3.principal = 1
+      WHERE u.activo = 1 
+      GROUP BY ID_Evaluador , Evaluador, cargo_evaluador,empresa_evaluador, ID_Colaborador,Colaborador,u.cargo, u.area, Empresa,Sede,fechaIngreso;`;
     const replacements = {
       idEmpresa: idEmpresa || null,
       idSede: idSede || null,
