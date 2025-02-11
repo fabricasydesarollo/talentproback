@@ -13,7 +13,11 @@ import { Calificaciones, Respuestas } from "../models/respuestas.model.js";
 import { Usuarios, UsuariosEvaluadores } from "../models/usuarios.model.js";
 import { literal, Op } from "sequelize";
 import Sequelize from "../config/db.js";
-import { calcularPromedioGeneral } from "../utils/calcularPromedios.js";
+import { downloadPdfs, generateDynamicPdfs } from "../utils/generatepdf.js";
+import jwt from "jsonwebtoken";
+import dontenv from "dotenv";
+import { validateToken } from "../utils/token.js";
+dontenv.config();
 
 export const crearRespuesta = async (req, res, next) => {
   try {
@@ -210,44 +214,117 @@ export const obtenerCalificacion = async (req, res, next) => {
 };
 
 export const respuestasGeneral = async (req, res, next) => {
-  const { idUsuario } = req.query;
+  const { idusers, idEvaluacion } = req.body;
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(403).json({ message: "Acceso denegado" });
+  }
+  const data = jwt.verify(token, process.env.SECRETWORD);
   try {
-    const cabecera = await Usuarios.findAll({
-      where: { idUsuario },
-      include: [{ model: Usuarios, as: "evaluadores", attributes: ["idUsuario", "nombre", "cargo"], through:{attributes:[]} },{model: Evaluaciones, through:{attributes: []}}],
-      attributes: ["idUsuario", "nombre", "cargo","area", "fechaIngreso"]
+    const escalacalificacion = await Calificaciones.findAll({attributes: ["descripcion", "valor"]})
+    const sql =`SELECT CASE WHEN r.idColaborador = r.idEvaluador THEN "AUTOEVALUACIÓN" ELSE "EVALUACIÓN" END as tipo ,
+    u.idUsuario as "documento", u.nombre AS "Evaluador", 
+    u2.idUsuario as "evaluado_cc", u2.nombre as evaluado_nombre, u2.cargo, 
+    DATE_FORMAT(u2.fechaIngreso, '%Y-%m-%d') as "fecha_ingreso", e2.urlLogo  as imageUrl, 
+    c.nombre as Competencia, AVG(c2.valor) as promedio, DATE_FORMAT(r.createdAt, '%Y-%m-%d')as fecha_registro
+      FROM usuarios u 
+      JOIN respuestas r ON r.idEvaluador = u.idUsuario
+      JOIN usuarios u2 ON r.idColaborador = u2.idUsuario
+      JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u2.idUsuario AND ue2.principal = 1
+      JOIN Empresas e2 ON e2.idEmpresa = ue2.idEmpresa
+      JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
+      JOIN Competencias c ON c.idCompetencia = d.idCompetencia 
+      JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
+    WHERE r.idColaborador IN(:listIds) AND r.idEvaluacion = :idEvaluacion
+    GROUP BY documento, u.nombre, evaluado_cc, evaluado_nombre, c.nombre, tipo,  u2.cargo, imageUrl, fecha_ingreso, fecha_registro;`
+
+    const replacements = {
+      listIds:  idusers,
+      idEvaluacion: idEvaluacion
+    };
+    const usuarios = await Sequelize.query(sql, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
     });
 
-    const sqlevaluacion = `SELECT c.idCompetencia, c.nombre, c2.valor FROM respuestas r 
-        JOIN Evaluaciones e ON e.idEvaluacion = r.idEvaluacion 
-        JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
-        JOIN Competencias c ON c.idCompetencia = d.idCompetencia
-        JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-        WHERE r.idColaborador = :idUsuario;`
+    const groupedData = usuarios.reduce((acc, item) => {
+      const { evaluado_cc, evaluado_nombre, cargo, fecha_ingreso, imageUrl, tipo, Competencia, promedio, fecha_registro, documento, Evaluador } = item;
+  
+      if (!acc[evaluado_cc]) {
+          acc[evaluado_cc] = {
+              version: '1.0',
+              evaluado_nombre,
+              evaluado_cc,
+              cargo,
+              fecha_ingreso,
+              evaluadornombre: [],
+              escalacalificacion: escalacalificacion,
+              competencias: [],
+              promedio_evaluacion: 0,
+              promedio_autoevaluacion: 0,
+              fecha_registro,
+              fecha_impresion: new Date().toISOString().split('T')[0],
+              imageUrl
+          };
+      }
+  
+      acc[evaluado_cc].competencias.push({ nombre: Competencia, puntaje: promedio, tipo: tipo });
+  
+      if (!acc[evaluado_cc].evaluadornombre.some(e => e.documento === documento)) {
+        if (evaluado_cc !== documento) {
+            acc[evaluado_cc].evaluadornombre.push({ documento, name: Evaluador });
+        }
+      }
 
-      const replacements = {
-        idUsuario: idUsuario || null,
-      };
-      const evaluacion = await Sequelize.query(sqlevaluacion, {
-        replacements,
-        type: Sequelize.QueryTypes.SELECT,
-      });
+      if (tipo == 'EVALUACIÓN') {
+        acc[evaluado_cc].fecha_registro = fecha_registro
+    }
+  
+      return acc;
+  }, {});
+  
+  
+  const result = Object.values(groupedData).map(item => {
+      const competenciasMap = item.competencias.reduce((acc, comp) => {
+          const key = `${comp.tipo}-${comp.nombre}`;
+          if (!acc[key]) {
+              acc[key] = { nombre: comp.nombre, puntaje: 0, count: 0, tipo: comp.tipo };
+          }
+          acc[key].puntaje += comp.puntaje;
+          acc[key].count += 1;
+  
+          return acc;
+      }, {});
+  
+  
+      item.competencias = Object.values(competenciasMap).map(comp => ({
+          nombre: comp.nombre,
+          puntaje: (comp.puntaje / comp.count).toFixed(1),
+          tipo: comp.tipo
+      }));
+      
+      
+      const evaluaciones = item.competencias.filter(comp => comp.tipo === 'EVALUACIÓN');
+      const autoevaluaciones = item.competencias.filter(comp => comp.tipo === 'AUTOEVALUACIÓN');
+      
+  
+      if (evaluaciones.length > 0) {
+          item.promedio_evaluacion = (evaluaciones.reduce((sum, comp) => sum + parseFloat(comp.puntaje), 0) / evaluaciones.length).toFixed(1);
+      }
+  
+      if (autoevaluaciones.length > 0) {
+          item.promedio_autoevaluacion = (autoevaluaciones.reduce((sum, comp) => sum + parseFloat(comp.puntaje), 0) / autoevaluaciones.length).toFixed(1);
+      }
+  
+      item.competencias = item.competencias.filter(comp => comp.tipo === 'EVALUACIÓN');
+  
+      return item;
+  });
 
-      const sqlauto = `SELECT c.idCompetencia, c.nombre, c2.valor,r.createdAt FROM respuestas r 
-        JOIN Evaluaciones e ON e.idEvaluacion = r.idEvaluacion 
-        JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
-        JOIN Competencias c ON c.idCompetencia = d.idCompetencia
-        JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-        WHERE r.idColaborador = :idUsuario AND r.idEvaluador = :idUsuario;`
+    const paths = await generateDynamicPdfs(result, data?.idUsuario)
 
-      const autoevaluacion = await Sequelize.query(sqlauto, {
-        replacements,
-        type: Sequelize.QueryTypes.SELECT,
-      });
+    downloadPdfs(paths, res)
 
-      const comentarios = await EvaluacionesRealizadas.findAll({where: {idColaborador: idUsuario}, attributes: ["comentario"]})
-
-    res.status(200).json({ cabecera,comentarios, evaluacion: calcularPromedioGeneral(evaluacion),autoevaluacion: calcularPromedioGeneral(autoevaluacion)});
   } catch (error) {
     next(error);
   }

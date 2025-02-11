@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Talent Pro - PDF</title>
+</head>
+
+<body>
+  <style>
+    body {
+      margin: 50px;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    #pdf {
+      width: 100%;
+      border-collapse: collapse;
+      display: grid;
+    }
+    #pdf, th, td {
+      text-indent: 0%;
+      border-spacing: 0cap;
+      text-align: center;
+    }
+    #img {
+      width: 80%;
+      height: 80px;
+      overflow: hidden;
+      border-right: 2px solid rgba(223, 223, 223, 0.757);
+    }
+    #img > img {
+      width: 100%;
+      height: 80px;
+      object-fit: contain;
+    }
+    #pdf > thead > tr {
+      display: grid;
+      width: 100%;
+      height: 80px;
+      grid-template-rows: repeat(2, 1fr);
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      justify-items: center;
+      border: 1px solid rgba(223, 223, 223, 0.757);
+      
+      th:nth-child(1) {
+      grid-column: 1 / 2;
+      grid-row: 1 / 3;
+      }
+      th:nth-child(2) {
+      grid-column: 2 / 4;
+      }
+      th:nth-child(4) {
+      grid-column: 2 / 4;
+      }
+      th:nth-child(3) {
+      grid-column: 4 / 5;
+      grid-row: 1 / 4;
+    }
+    }
+    tbody > tr {
+      display: grid;
+      width: 100%;
+      grid-template-rows: repeat(2, 1fr);
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid rgba(223, 223, 223, 0.757);
+    }
+
+    tbody > tr:nth-child(3) {
+      td {
+        grid-column: 2 / 5;
+        grid-row: 1 / 3;
+        text-align: start;
+        border-left: 2px solid rgba(223, 223, 223, 0.757);
+      }
+    }
+
+    tbody > tr:nth-child(6) {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(4, 1fr);
+      td:nth-child(3) {
+        grid-column: 1 / 4;
+        text-align: start;
+      }
+      th:nth-child(1) {
+        grid-column: 1 / 4;
+        text-align: start;
+        border-right: 2px solid rgba(223, 223, 223, 0.757);
+      }
+      td:nth-child(odd) {
+        grid-column: 1 / 4;
+        text-align: start;
+        border-right: 2px solid rgba(223, 223, 223, 0.757);
+      }
+      td:nth-child(even) {
+        grid-column: 4 / 5;
+      }
+    }
+
+    tfoot > tr {
+      display: grid;
+      width: 100%;
+      height: 40px;
+      grid-template-rows: repeat(1, 1fr);
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid rgba(223, 223, 223, 0.757);
+      align-items: center;
+      justify-items: center;
+
+      th:nth-child(1) {
+      grid-column: 1 / 2;
+      grid-row: 1 / 1;
+      }
+      th:nth-child(2) {
+       grid-column: 2 / 3;
+       border-right: 2px solid rgba(223, 223, 223, 0.757);
+       grid-row: 1 / 1;
+      }
+    }
+
+    #objetivo {
+      grid-column: 1 / 5;
+      th {
+        grid-column: 1 / 5;
+        text-align: start;
+        border-bottom: 1px solid rgba(223, 223, 223, 0.757);
+      }
+      td {
+        grid-column: 1 / 5;
+        text-align: start;
+      }
+    }
+
+    .promedio 
+    {
+      th {
+        grid-column: 1 / 4;
+        border-right: 2px solid rgba(223, 223, 223, 0.757);
+        grid-row: 1 / 3;
+      }
+      td {
+        grid-column: 4 / 5;
+        grid-row: 1 / 3;
+      }
+    }
+    .firmas {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: 1fr;
+      th:nth-child(1) {
+        grid-column: 1 / 1;
+        border-right: 2px solid rgba(223, 223, 223, 0.757);
+      }
+    }
+
+    #competencias {
+      width: 100%;
+      th {
+        grid-column: 1 / 5;
+        text-align: start;
+        border-bottom: 2px solid rgba(223, 223, 223, 0.757);
+      }
+      td:nth-child(even) {
+        grid-column: 1 / 4;
+        text-align: start;
+        border-right: 2px solid rgba(223, 223, 223, 0.757);
+      }
+      td:nth-child(odd) {
+        grid-column: 4 / 5;
+      }
+    }
+  </style>
+
+  <div>
+    <table id="pdf">
+      <thead>
+        <tr>
+          <th id="img"><img src="{{image_base64}}" alt="Logo" /></th>
+          <th>EVALUACIÓN DE DESEMPEÑO</th>
+          <th>Versión: {{version}}</th>
+          <th>PROCESO: GESTIÓN HUMANA</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>Nombre del evaluado</th>
+          <th>Cargo</th>
+          <th>Fecha de ingreso</th>
+          <th>Periodo</th>
+        </tr>
+        <tr>
+          <td>{{evaluado_nombre}}</td>
+          <td>{{cargo}}</td>
+          <td>{{fecha_ingreso}}</td>
+          <td>Año 2024</td>
+        </tr>
+
+        <tr>
+          <th>Nombre del evaluador</th>
+          <td>{{evaluador_nombre}}</td>
+        </tr>
+        <tr id="objetivo">
+          <th>Objetivo</th>
+          <td>
+            El objetivo de esta evaluación es valorar las competencias para identificar las fortalezas y puntos de
+            mejora en cuanto al desempeño esperado.
+          </td>
+        </tr>
+
+        <tr id="competencias">
+          <th>Escala de calificación</th>
+            {{escala_calificacion}}
+          <td >
+        <tr>
+          <th>Competencia</th>
+          <th>Promedio</th>
+          {{competencias}}
+        </tr>
+        </tr>
+
+        <tr class="promedio">
+          <th>PROMEDIO EVALUACIÓN</th>
+          <td >{{promedio_evaluacion}}</td>
+        </tr>
+
+        <tr class="promedio">
+          <th>PROMEDIO AUTOEVALUACIÓN</th>
+          <td >{{promedio_autoevaluacion}}</td>
+        </tr>
+
+        <tr class="firmas">
+          <th>Nombre y cédula evaluador</th>
+          <th>Nombre y cédula evaluado</th>
+        </tr>
+        <tr class="firmas">  
+          <td>{{evaluadores}}</td>
+          <td>{{evaluado_cc}}</td>
+        </tr>
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <th>Fecha registro</th>
+          <th>{{fecha_registro}}</th>
+          <th>Fecha impresión</th>
+          <th>{{fecha_impresion}}</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</body>
+
+</html>

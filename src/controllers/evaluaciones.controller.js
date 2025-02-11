@@ -22,6 +22,14 @@ export const crearEvaluacion = async (req, res, next) => {
     next(error);
   }
 };
+export const obtenerEvaluacionesActivas = async (req, res, next) => {
+  try {
+    const respuesta = await Evaluaciones.findAll({attributes: {exclude: ['createdAt','updatedAt']}})
+    res.status(200).json({ message: "Ok", data: respuesta });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const obtenerEvaluacion = async (req, res, next) => {
   try {
@@ -332,5 +340,13 @@ export const eliminarEvaluacion = async (req, res, next) => {
     }
   } catch (error) {
     next(error);
+  }
+}
+
+export const generarpdfcontroller = async (req, res, next) => {
+  try {
+    generatePDF(res, req.body);
+  } catch (error) {
+    next(error)
   }
 }
