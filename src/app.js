@@ -20,7 +20,7 @@ initTask() // ⏳ Ejecutar cron jobs al iniciar el servidor
 
 
 app.use(cors({
-    origin: ["https://talentprozentria.netlify.app", "https://talentpro-evaluaciones2024.netlify.app"],
+  origin: ["https://talentpro-evaluaciones2024.netlify.app", "http://localhost:5173", "https://talentprozentriaqa.netlify.app"],
     credentials: true
 }))
 
