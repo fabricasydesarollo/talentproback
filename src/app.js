@@ -8,6 +8,7 @@ import cors from "cors"
 import cookieParser from "cookie-parser"
 import https from 'https'
 import { readFileSync } from "fs"
+import { initTask } from "./utils/deletedFolter.js"
 
 dontenv.config()
 
@@ -15,10 +16,11 @@ const app = express()
 
 app.use(express.json())
 app.use(cookieParser())
+initTask() // ⏳ Ejecutar cron jobs al iniciar el servidor
 
 
 app.use(cors({
-    origin: ["https://talentprozentria.netlify.app", "http://localhost:5173"],
+    origin: ["https://talentprozentria.netlify.app", "https://talentpro-evaluaciones2024.netlify.app"],
     credentials: true
 }))
 

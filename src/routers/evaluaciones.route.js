@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { actualizarCompromisosPorUsuario, agregarComentarioGeneral, crearCompromiso, crearEvaluacion, crearTipoEvaluacion, eliminarEvaluacion, evaluacionesDisponibles, obtenerComentariosPorUsuario, obtenerCompromisos, obtenerEvaluacion, obtenerTipoEvaluacion } from "../controllers/evaluaciones.controller.js";
+import { actualizarCompromisosPorUsuario, agregarComentarioGeneral, crearCompromiso, crearEvaluacion, crearTipoEvaluacion, eliminarEvaluacion, evaluacionesDisponibles, generarpdfcontroller, obtenerComentariosPorUsuario, obtenerCompromisos, obtenerEvaluacion, obtenerEvaluacionesActivas, obtenerTipoEvaluacion } from "../controllers/evaluaciones.controller.js";
 
 const router = Router()
 
@@ -22,6 +22,10 @@ router.route("/comentarios")
 
 router.route("/disponible")
     .get(evaluacionesDisponibles)
+    .delete(eliminarEvaluacion)
+
+router.route("/gestionar")
+    .get(obtenerEvaluacionesActivas)
     .delete(eliminarEvaluacion)
 
 export default router
