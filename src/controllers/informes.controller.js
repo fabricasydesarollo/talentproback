@@ -390,7 +390,7 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
         u.idUsuario as "ID_Evaluador", u.nombre AS "Evaluador", u.cargo as "cargo_evaluador", e.nombre as empresa_evaluador,
         u2.idUsuario as "ID_Colaborador", u2.nombre as Colaborador, u2.cargo, u2.area,
         DATE_FORMAT(u2.fechaIngreso, '%Y-%m-%d') as "fechaIngreso", e2.nombre  as Empresa, s.nombre  as Sede,
-        c.nombre as Competencia, AVG(c2.valor) as promedio FROM usuarios u 
+        c.nombre as Competencia, ROUND(AVG(valor), 2) as promedio FROM usuarios u 
           JOIN UsuariosEmpresas ue ON ue.idUsuario = u.idUsuario AND ue.principal = 1
           JOIN Empresas e ON e.idEmpresa = ue.idEmpresa
           JOIN respuestas r ON r.idEvaluador = u.idUsuario
