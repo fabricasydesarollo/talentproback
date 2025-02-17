@@ -75,3 +75,25 @@ export const calcularPromedioGeneral = (array) => {
   });
   return datosCalculados
   }
+
+
+export function formatAreasNiveles(data) {
+    const areasSet = new Set();
+    const niveles = Object.values(
+        data.reduce((acc, curr) => {
+            const { nombre, idNivelCargo, area } = curr;
+            if (!acc[nombre]) {
+                acc[nombre] = { idNivelCargo, nombre };
+            }
+            if (area) {
+                areasSet.add(area);
+            }
+
+            return acc;
+        }, {})
+    );
+    return {
+        areas: Array.from(areasSet),
+        niveles
+    };
+}

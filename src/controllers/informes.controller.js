@@ -19,6 +19,7 @@ import {
 
 import {
   calcularPromedio,
+  formatAreasNiveles,
   transformarDatos,
 } from "../utils/calcularPromedios.js";
 
@@ -109,7 +110,37 @@ export const informeAvancesGraficas = async (req, res, next) => {
 };
 export const informeAvancesGraficasAll = async (req, res, next) => {
   try {
-    const { idSede, idEmpresa } = req.query;
+    const { idSede, idEmpresa, area, idNivelCargo, idEvaluador, idEvaluacion } = req.query;
+
+    if (!idEvaluacion) {
+      res.status(400).json({ message: "El la evaluación es requerida!" });
+    }
+
+    const replacements = {
+      idEmpresa: idEmpresa ?? null,
+      idSede: idSede ?? null,
+      area: area ?? "", // Evita que `LIKE` falle con NULL
+      idNivelCargo: idNivelCargo ?? null,
+      idEvaluador: idEvaluador ?? null,
+      idEvaluacion,
+    };
+
+
+    let filtroNivelCargo = "";
+    if (idNivelCargo) {
+      filtroNivelCargo = `AND u.idNivelCargo = :idNivelCargo`;
+    }
+
+    let filtroArea = "";
+    if (area) {
+      filtroArea = `AND u.area LIKE CONCAT('%', :area, '%')`;
+    }
+    let filtroEvaluador = "";
+    if (idEvaluador) {
+      filtroEvaluador = `r.idEvaluacion = :idEvaluacion AND r.idEvaluador = :idEvaluador ${filtroNivelCargo} ${filtroArea}`;
+    }
+    const filtro = `(ue.idEmpresa = :idEmpresa OR us.idSede = :idSede) ${filtroNivelCargo} ${filtroArea} AND r.idEvaluacion = :idEvaluacion`
+
     const querySedes = `
     SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) as Autoevaluacion,
     COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 2 THEN er.idColaborador END) as Evaluacion, s.idSede, s.nombre 
@@ -124,9 +155,9 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     GROUP BY 
         s.idSede, s.nombre;
       `;
-    const replacements = {
-      idSede: idSede || null,
-    };
+    // const replacements = {
+    //   idSede: idSede || null,
+    // };
     const totalUsuariosSede = await Sequelize.query(querySedes, {
       replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
@@ -143,11 +174,11 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       e.nombre, e.idEmpresa;
       `;
 
-    const replacements1 = {
-      idEmpresa: idEmpresa || null,
-    };
+    // const replacements1 = {
+    //   idEmpresa: idEmpresa || null,
+    // };
     const totalUsuariosEmpresa = await Sequelize.query(queryEmpresas, {
-      replacements: replacements1,
+      replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
     const query = `
@@ -222,53 +253,99 @@ export const informeExcelAvances = async (req, res, next) => {
 
 export const informeResultadosGraficas = async (req, res, next) => {
   try {
-    const { idSede, idEmpresa, idEvaluador } = req.query;
-    const respuesta = await Competencias.findAll({
-      include: [
-        {
-          model: Descriptores,
-          attributes: ["idDescriptor"],
-          include: [
-            {
-              model: Respuestas,
-              attributes: ["idCalificacion"],
-              where: idEvaluador ? { idEvaluador } : undefined,
-              include: [
-                {
-                  model: Calificaciones,
-                  attributes: ["valor"],
-                },
-              ],
-              required: true,
-            },
-          ],
-          required: true,
-        },
-        {
-          model: TipoCompetencia,
-          attributes: ["nombre"],
-          required: false,
-        },
-        {
-          model: Empresas,
-          where: idEmpresa ? { idEmpresa } : {},
-          required: true,
-          attributes: [],
-          include: [
-            {
-              model: Sedes,
-              where: idSede ? { idSede } : {},
-              required: true,
-              attributes: [],
-            },
-          ],
-        },
-      ],
-      attributes: ["idCompetencia", "nombre"],
+    const { idSede, idEmpresa, idEvaluador, idEvaluacion, area, idNivelCargo } = req.query;
+
+    if (!idEvaluacion) {
+      res.status(400).json({ message: "El la evaluación es requerida!" });
+    }
+
+    const replacements = {
+      idEmpresa: idEmpresa ?? null,
+      idSede: idSede ?? null,
+      area: area ?? "", // Evita que `LIKE` falle con NULL
+      idNivelCargo: idNivelCargo ?? null,
+      idEvaluador: idEvaluador ?? null,
+      idEvaluacion,
+    };
+
+    let filtroNivelCargo = "";
+    if (idNivelCargo) {
+      filtroNivelCargo = `AND u.idNivelCargo = :idNivelCargo`;
+    }
+
+    let filtroArea = "";
+    if (area) {
+      filtroArea = `AND u.area LIKE CONCAT('%', :area, '%')`;
+    }
+    let filtroEvaluador = "";
+    if (idEvaluador) {
+      filtroEvaluador = `r.idEvaluacion = :idEvaluacion AND r.idEvaluador = :idEvaluador ${filtroNivelCargo} ${filtroArea}`;
+    }
+    const filtro = `(ue.idEmpresa = :idEmpresa OR us.idSede = :idSede) ${filtroNivelCargo} ${filtroArea} AND r.idEvaluacion = :idEvaluacion`
+
+    const query2 = `
+      SELECT 
+        c.idCompetencia, 
+        c.nombre, 
+        tc.nombre AS tipoCompetencia, 
+        ROUND(AVG(c2.valor), 1) AS promedio 
+      FROM usuarios u 
+      JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
+      JOIN Sedes s ON s.idSede = us.idSede 
+      JOIN UsuariosEmpresas ue ON ue.idUsuario = u.idUsuario AND ue.principal = 1
+      JOIN Empresas e ON e.idEmpresa = ue.idEmpresa 
+      JOIN respuestas r ON r.idColaborador = u.idUsuario AND r.idEvaluador != u.idUsuario
+      JOIN Descriptores d ON r.idDescriptor = d.idDescriptor 
+      JOIN Competencias c ON c.idCompetencia = d.idCompetencia
+      JOIN TipoCompetencia tc ON tc.idTipo = c.idTipo  
+      JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
+      WHERE ${idEvaluador ? filtroEvaluador : filtro }
+      GROUP BY c.idCompetencia, c.nombre, tipoCompetencia;
+    `;
+
+    const query = `
+      SELECT 
+        u.idUsuario, 
+        ROUND(AVG(c2.valor), 1) AS promedio 
+      FROM usuarios u 
+      JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
+      JOIN UsuariosEmpresas ue ON ue.idUsuario = u.idUsuario AND ue.principal = 1
+      JOIN respuestas r ON r.idColaborador = u.idUsuario AND r.idEvaluador != u.idUsuario
+      JOIN Descriptores d ON r.idDescriptor = d.idDescriptor 
+      JOIN Competencias c ON c.idCompetencia = d.idCompetencia
+      JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
+      WHERE ${idEvaluador ? filtroEvaluador : filtro }
+      GROUP BY u.idUsuario;
+    `;
+
+    const query3 = `SELECT u.area, nc.idNivelCargo, nc.nombre   FROM usuarios u 
+    JOIN UsuariosEmpresas ue ON ue.idUsuario = u.idUsuario AND ue.principal = 1 
+    JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
+    JOIN nivelCargos nc ON nc.idNivelCargo = u.idNivelCargo 
+    WHERE ue.idEmpresa = :idEmpresa OR us.idSede = :idSede 
+    GROUP BY u.area, nc.idNivelCargo, nc.nombre; ` 
+
+    const dataSelect = await Sequelize.query(query3, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
     });
+
+    const respuesta = await Sequelize.query(query2, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
+    });
+
+    const informe = await Sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
+    });
+
     res.status(200).json({
       message: "Informes",
-      data: calcularPromedio(respuesta),
+      data: respuesta,
+      informe,
+      dataSelect: formatAreasNiveles(dataSelect)
+      
     });
   } catch (error) {
     next(error);
@@ -279,7 +356,7 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador, idEvaluacion } = req.query;
     if (!idEvaluacion) {
-      res.status(400).json({message: "idEvaluacion is required"})
+      res.status(400).json({ message: "idEvaluacion is required" });
     }
 
     const query = `
@@ -317,7 +394,7 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
       idEmpresa: idEmpresa || null,
       idSede: idSede || null,
       idEvaluacion,
-      idEvaluador: idEvaluador || null
+      idEvaluador: idEvaluador || null,
     };
     const informe = await Sequelize.query(query, {
       replacements,
@@ -382,7 +459,7 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador, idEvaluacion } = req.query;
     if (!idEvaluacion) {
-      res.status(400).json({message: "idEvaluacion is required"})
+      res.status(400).json({ message: "idEvaluacion is required" });
     }
 
     const query = `
@@ -403,12 +480,12 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
           JOIN Competencias c ON c.idCompetencia = d.idCompetencia 
           JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
         WHERE e.idEmpresa IN(:idEmpresa) AND e2.idEmpresa IN(:idEmpresa) AND r.idEvaluacion = :idEvaluacion AND u.activo = 1 AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
-        GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`
+        GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`;
     const replacements = {
       idEmpresa: idEmpresa || null,
       idSede: idSede || null,
       idEvaluador: idEvaluador || null,
-      idEvaluacion: idEvaluacion
+      idEvaluacion: idEvaluacion,
     };
     const informe = await Sequelize.query(query, {
       replacements,
