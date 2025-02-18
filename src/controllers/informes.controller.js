@@ -139,7 +139,6 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     if (idEvaluador) {
       filtroEvaluador = `r.idEvaluacion = :idEvaluacion AND r.idEvaluador = :idEvaluador ${filtroNivelCargo} ${filtroArea}`;
     }
-    const filtro = `(ue.idEmpresa = :idEmpresa OR us.idSede = :idSede) ${filtroNivelCargo} ${filtroArea} AND r.idEvaluacion = :idEvaluacion`
 
     const querySedes = `
     SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) as Autoevaluacion,
@@ -152,15 +151,14 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
         us.idSede IN (:idSede)
         AND u.activo = 1 
         AND (ISNULL(us.principal) OR us.principal = 1)
+        ${filtroArea} ${filtroNivelCargo}
     GROUP BY 
         s.idSede, s.nombre;
       `;
-    // const replacements = {
-    //   idSede: idSede || null,
-    // };
     const totalUsuariosSede = await Sequelize.query(querySedes, {
       replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
+      logging: true
     });
     const queryEmpresas = `
     SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) as Autoevaluacion,
@@ -170,13 +168,10 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario
     LEFT JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
     WHERE u.activo = 1 AND ue2.principal = 1 AND (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa)
+    ${filtroArea} ${filtroNivelCargo}
     GROUP BY 
       e.nombre, e.idEmpresa;
       `;
-
-    // const replacements1 = {
-    //   idEmpresa: idEmpresa || null,
-    // };
     const totalUsuariosEmpresa = await Sequelize.query(queryEmpresas, {
       replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
