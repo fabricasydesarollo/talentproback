@@ -113,7 +113,7 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     const { idSede, idEmpresa, area, idNivelCargo, idEvaluador, idEvaluacion } = req.query;
 
     if (!idEvaluacion) {
-      res.status(400).json({ message: "El la evaluación es requerida!" });
+      res.status(400).json({ message: "La evaluación es requerida!" });
     }
 
     const replacements = {
@@ -141,56 +141,48 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     }
 
     const querySedes = `
-    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) as Autoevaluacion,
-    COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 2 THEN er.idColaborador END) as Evaluacion, s.idSede, s.nombre 
+    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, 
+    COUNT(DISTINCT r2.idColaborador) as Autoevaluacion,
+    COUNT(DISTINCT r.idColaborador) as Evaluacion, 
+    s.idSede, s.nombre 
     FROM usuarios u 
-    LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario 
-    LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario
+    LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador
+    LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador 
+    LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
     LEFT JOIN Sedes s ON s.idSede = us.idSede 
-    WHERE 
-        us.idSede IN (:idSede)
-        AND u.activo = 1 
-        AND (ISNULL(us.principal) OR us.principal = 1)
-        ${filtroArea} ${filtroNivelCargo}
+    WHERE us.idSede IN (:idSede) ${filtroArea} ${filtroNivelCargo}
+        AND u.activo = 1
     GROUP BY 
         s.idSede, s.nombre;
       `;
     const totalUsuariosSede = await Sequelize.query(querySedes, {
       replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
-      logging: true
     });
     const queryEmpresas = `
-    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 1 THEN er.idColaborador END) as Autoevaluacion,
-    COUNT(DISTINCT CASE WHEN er.idTipoEvaluacion = 2 THEN er.idColaborador END) as Evaluacion, e.idEmpresa, e.nombre
+    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, 
+    COUNT(DISTINCT r2.idColaborador) as Autoevaluacion,
+    COUNT(DISTINCT r.idColaborador) as Evaluacion,
+    e.idEmpresa, e.nombre
     FROM usuarios u 
-    LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = u.idUsuario 
-    JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario
-    LEFT JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
-    WHERE u.activo = 1 AND ue2.principal = 1 AND (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa)
-    ${filtroArea} ${filtroNivelCargo}
-    GROUP BY 
-      e.nombre, e.idEmpresa;
-      `;
+    LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador
+    LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador 
+    JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal = 1
+    JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
+    WHERE u.activo = 1 AND (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa) ${filtroArea} ${filtroNivelCargo}
+    GROUP BY e.nombre, e.idEmpresa;`;
+
     const totalUsuariosEmpresa = await Sequelize.query(queryEmpresas, {
       replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
     const query = `
-    SELECT 
-    COUNT(DISTINCT u.idUsuario) AS Usuarios,
-    COUNT(DISTINCT er.idColaborador) AS Autoevaluacion,
-    COUNT(CASE WHEN ue.estado = 1 THEN 1 END) AS Evaluacion FROM 
-    usuarios u LEFT JOIN EvaluacionesRealizadas er 
-    ON er.idColaborador = u.idUsuario 
-    AND er.idTipoEvaluacion = 1 
-    AND u.activo = 1
-JOIN 
-    usuariosEvaluadores ue 
-    ON ue.idUsuario = u.idUsuario 
-    AND ue.deletedAt IS NULL 
-WHERE 
-    u.activo = 1
+    SELECT COUNT(DISTINCT u.idUsuario) AS Usuarios,
+    COUNT(DISTINCT r.idColaborador) AS Evaluacion,
+    COUNT(DISTINCT r2.idColaborador) AS Autoevaluacion
+    FROM usuarios u LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador
+    LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador 
+    WHERE u.activo = 1;
     ;`;
     const avanceGlobal = await Sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
