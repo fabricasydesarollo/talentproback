@@ -342,8 +342,8 @@ export const informeResultadosGraficas = async (req, res, next) => {
 export const informeExcelAvancesDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador, idEvaluacion } = req.query;
-    if (!idEvaluacion) {
-      res.status(400).json({ message: "idEvaluacion is required" });
+    if (!idEvaluacion || !idEmpresa) {
+      res.status(400).json({ message: "idEvaluacion and idEmpresa is required" });
     }
 
     const query = `
@@ -374,7 +374,7 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
         LEFT JOIN Sedes s ON s.idSede = us.idSede 
         JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario 
         JOIN Empresas e2 ON e2.idEmpresa = ue3.idEmpresa AND ue3.principal = 1
-        WHERE u.activo = 1 AND u2.activo = 1 AND (eval.idEvaluacion = :idEvaluacion OR eval.idEvaluacion IS NULL AND auto.idEvaluacion = :idEvaluacion OR auto.idEvaluacion IS NULL)
+        WHERE u.activo = 1 AND u2.activo = 1 AND (:idEmpresa IS NULL OR e.idEmpresa  = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) AND (eval.idEvaluacion = :idEvaluacion OR eval.idEvaluacion IS NULL AND auto.idEvaluacion = :idEvaluacion OR auto.idEvaluacion IS NULL)
         GROUP BY ID_Evaluador , Evaluador, cargo_evaluador,empresa_evaluador, ID_Colaborador,
         Colaborador,u.cargo, u.area, Empresa,Sede,fechaIngreso;`;
     const replacements = {
@@ -386,6 +386,7 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
     const informe = await Sequelize.query(query, {
       replacements,
       type: Sequelize.QueryTypes.SELECT,
+      logging: true
     });
 
     res.status(200).json({
