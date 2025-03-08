@@ -342,8 +342,9 @@ export const informeResultadosGraficas = async (req, res, next) => {
 export const informeExcelAvancesDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador, idEvaluacion } = req.query;
-    if (!idEvaluacion || !idEmpresa) {
+    if (!idEvaluacion) {
       res.status(400).json({ message: "idEvaluacion and idEmpresa is required" });
+      return
     }
 
     const query = `
@@ -386,7 +387,6 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
     const informe = await Sequelize.query(query, {
       replacements,
       type: Sequelize.QueryTypes.SELECT,
-      logging: true
     });
 
     res.status(200).json({
