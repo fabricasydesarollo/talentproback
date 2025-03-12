@@ -4,7 +4,7 @@ import fs from 'fs';
 import cron from 'node-cron'
 
 export function initTask() {
-    cron.schedule('*/10 * * * *',() => {
+    cron.schedule('*/60 * * * *',() => {
         limpiarCarpeta(ruta)
     })
 }
