@@ -39,7 +39,7 @@ export const crearTipoCompetencia = async (req, res, next) => {
 
 export const obtenerTipoCompetencia = async (req, res, next) => {
   try {
-    const respuesta = await TipoCompetencias.findAll();
+    const respuesta = await TipoCompetencia.findAll();
     res.status(200).json({ message: "Ok", data: respuesta });
   } catch (error) {
     next(error);

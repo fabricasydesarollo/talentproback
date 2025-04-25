@@ -446,7 +446,9 @@ export const reporteAccionesMejora = async (req, res, next) => {
 export const informeExcelResultadosDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador, idEvaluacion } = req.query;
-    if (!idEvaluacion) {
+    console.log(idSede, idEmpresa);
+    console.log((!idEmpresa || !idSede));
+    if (!idEvaluacion && (!idEmpresa || !idSede)) {
       res.status(400).json({ message: "idEvaluacion is required" });
     }
 
@@ -467,7 +469,7 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
           JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
           JOIN Competencias c ON c.idCompetencia = d.idCompetencia 
           JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-        WHERE e.idEmpresa IN(:idEmpresa) AND e2.idEmpresa IN(:idEmpresa) AND r.idEvaluacion = :idEvaluacion AND u.activo = 1 AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
+        WHERE e.idEmpresa IN(:idEmpresa) AND e2.idEmpresa IN(:idEmpresa) OR (:idSede IS NULL OR s.idSede = :idSede) AND r.idEvaluacion = :idEvaluacion AND u.activo = 1 AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
         GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`;
     const replacements = {
       idEmpresa: idEmpresa || null,

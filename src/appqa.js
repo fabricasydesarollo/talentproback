@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser"
 import https from 'https'
 import { readFileSync } from "fs"
 import { initTask } from "./utils/deletedFolter.js"
+import path from 'path'
 
 dontenv.config()
 
@@ -25,9 +26,10 @@ app.use(cors({
 }))
 
 app.use("/api/v1", routerIndex)
+app.use('/images',express.static(path.resolve('images')))
 
 app.get("/*", (req, res) => {
-    res.status(200).json({ message: "Welcome to API!" })
+    res.status(404).json({ message: "Welcome to API!" })
 })
 
 app.use(httpError)

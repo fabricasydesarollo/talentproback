@@ -5,7 +5,6 @@ const router = Router()
 
 router.route("/")
     .get(obtenerEvaluacion)
-    .post(crearEvaluacion)
 
 router.route("/tipo")
     .get(obtenerTipoEvaluacion)
@@ -27,5 +26,7 @@ router.route("/disponible")
 router.route("/gestionar")
     .get(obtenerEvaluacionesActivas)
     .delete(eliminarEvaluacion)
+    .post(crearEvaluacion)
+    
 
 export default router

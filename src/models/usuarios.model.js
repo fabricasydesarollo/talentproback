@@ -128,7 +128,12 @@ export const UsuariosSedes = db.define("UsuariosSedes", {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
         allowNull: false
-    }
+    },
+    // deletedAt: {
+    //     type: DataTypes.DATE,
+    //     defaultValue: null,
+    //     allowNull: true
+    // }
 })
 export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
     idUsuario: {
@@ -150,5 +155,10 @@ export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
         allowNull: false
-    }
+    },
+    // deletedAt: {
+    //     type: DataTypes.DATE,
+    //     defaultValue: null,
+    //     allowNull: true
+    // }
 })

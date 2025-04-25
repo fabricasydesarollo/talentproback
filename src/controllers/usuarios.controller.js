@@ -1,6 +1,3 @@
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
 import { Competencias, Descriptores } from "../models/competencias.model.js";
 import { Empresas, Sedes } from "../models/empresas.model.js";
 import {
@@ -13,7 +10,9 @@ import {
   NivelCargo,
   Perfiles,
   Usuarios,
+  UsuariosEmpresas,
   UsuariosEvaluadores,
+  UsuariosSedes,
 } from "../models/usuarios.model.js";
 import { hashPassword } from "../utils/hashPassword.js";
 import { Op } from "sequelize";
@@ -321,13 +320,37 @@ export const obtenerUsuariosSedes = async (req, res, next) => {
 
 export const asignarUsuariosSedes = async (req, res, next) => {
   try {
-    const { idUsuario, idSede } = req.body;
-    const respuesta = await UsuarioSedeEmpresa.create({ idUsuario, idSede });
-    res.status(200).json({ message: "Ok", data: respuesta });
+    const { idUsuario, idEmpresa, idSede, principal, repEmpresa, repSede, activo } = req.body;
+
+    if ([idUsuario, idEmpresa, idSede, principal, repEmpresa, repSede, activo].includes(null)) {
+      return res.status(400).json({ message: "Faltan datos necesarios para el registro!" });
+    }
+
+    const empresaExiste = await UsuariosEmpresas.findOne({
+      where: {
+        [Op.and]: [{ idEmpresa }, { idUsuario }]
+      }
+    });
+    if (!empresaExiste) {
+      await UsuariosEmpresas.create({ idUsuario, idEmpresa, principal, reportes: repEmpresa });
+    }
+
+    const sedeExiste = await UsuariosSedes.findOne({
+      where: {
+        [Op.and]: [{ idSede }, { idUsuario }]
+      }
+    });
+
+    if (!sedeExiste) {
+      await UsuariosSedes.create({ idUsuario, idSede, principal, reportes: repSede });
+    }
+
+    res.status(200).json({ message: "Transacción ejecutada correctamente" });
   } catch (error) {
     next(error);
   }
 };
+
 
 export const usuariosEvaluar = async (req, res, next) => {
   try {

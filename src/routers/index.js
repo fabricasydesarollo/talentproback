@@ -10,7 +10,7 @@ import routerAdmin from "./administrar.route.js"
 import { schemaGen, validateRequest } from "../middleware/validateSchema.js";
 const router = Router()
 
-router.use("/ciudades", validateRequest(schemaGen), routerCiudades)
+router.use("/ciudades", routerCiudades)
 router.use("/empresas", routerEmpresas)
 router.use("/usuarios", routerUsuarios)
 router.use("/evaluaciones", routerEvaluaciones)

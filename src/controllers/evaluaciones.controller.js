@@ -12,11 +12,12 @@ import {
 import { Respuestas } from "../models/respuestas.model.js";
 import { NivelCargo, UsuariosEvaluadores } from "../models/usuarios.model.js";
 import Sequelize from "../config/db.js";
+import { Op } from "sequelize";
 
 export const crearEvaluacion = async (req, res, next) => {
   try {
-    const { nombre, año } = req.body;
-    const respuesta = await Evaluaciones.create({ nombre, año });
+    const { nombre, año, estado } = req.body;
+    const respuesta = await Evaluaciones.create({ nombre, año, estado });
     res.status(200).json({ message: "Ok", data: respuesta });
   } catch (error) {
     next(error);
@@ -24,7 +25,11 @@ export const crearEvaluacion = async (req, res, next) => {
 };
 export const obtenerEvaluacionesActivas = async (req, res, next) => {
   try {
-    const respuesta = await Evaluaciones.findAll({attributes: {exclude: ['createdAt','updatedAt']}})
+    const respuesta = await Evaluaciones.findAll({
+     include: [{model: Competencias, through: {attributes: []}, attributes: {exclude: ['createdAt', 'updatedAt']},
+     include: [{model: Empresas, through: {attributes: []}, attributes: {exclude: ['createdAt', 'updatedAt', 'urlLogo','nit','idHub']}},{model: TipoCompetencia, attributes: {exclude: ['createdAt', 'updatedAt']} }]}],
+      attributes: {exclude: ['createdAt','updatedAt']},
+    })
     res.status(200).json({ message: "Ok", data: respuesta });
   } catch (error) {
     next(error);
@@ -34,6 +39,17 @@ export const obtenerEvaluacionesActivas = async (req, res, next) => {
 export const obtenerEvaluacion = async (req, res, next) => {
   try {
     const { idEmpresa, idNivelCargo } = req.query;
+
+    const activa = await Evaluaciones.findOne({
+      where: {
+        [Op.and]: [{ activa: true }, { idEvaluacion: 1 }]
+      }
+    });
+
+    if(!activa) {
+      res.status(400).json({message: "Evaluación inactiva!"})
+      return
+    }
 
     let respuesta;
 
