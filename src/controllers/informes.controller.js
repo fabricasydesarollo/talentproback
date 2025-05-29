@@ -375,7 +375,7 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
         LEFT JOIN Sedes s ON s.idSede = us.idSede 
         JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario 
         JOIN Empresas e2 ON e2.idEmpresa = ue3.idEmpresa AND ue3.principal = 1
-        WHERE u.activo = 1 AND u2.activo = 1 AND (:idEmpresa IS NULL OR e.idEmpresa  = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) AND (eval.idEvaluacion = :idEvaluacion OR eval.idEvaluacion IS NULL AND auto.idEvaluacion = :idEvaluacion OR auto.idEvaluacion IS NULL)
+        WHERE (:idEmpresa IS NULL OR e.idEmpresa  = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) AND (eval.idEvaluacion = :idEvaluacion OR eval.idEvaluacion IS NULL AND auto.idEvaluacion = :idEvaluacion OR auto.idEvaluacion IS NULL)
         GROUP BY ID_Evaluador , Evaluador, cargo_evaluador,empresa_evaluador, ID_Colaborador,
         Colaborador,u.cargo, u.area, Empresa,Sede,fechaIngreso;`;
     const replacements = {
@@ -469,7 +469,7 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
           JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
           JOIN Competencias c ON c.idCompetencia = d.idCompetencia 
           JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-        WHERE e.idEmpresa IN(:idEmpresa) AND e2.idEmpresa IN(:idEmpresa) OR (:idSede IS NULL OR s.idSede = :idSede) AND r.idEvaluacion = :idEvaluacion AND u.activo = 1 AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
+        WHERE e.idEmpresa IN(:idEmpresa) AND e2.idEmpresa IN(:idEmpresa) OR (:idSede IS NULL OR s.idSede = :idSede) AND r.idEvaluacion = :idEvaluacion AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
         GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`;
     const replacements = {
       idEmpresa: idEmpresa || null,
