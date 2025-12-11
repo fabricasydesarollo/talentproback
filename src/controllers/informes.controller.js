@@ -1,16 +1,5 @@
-import { Op } from "sequelize";
 import Sequelize from "../config/db.js";
-import {
-  Competencias,
-  Descriptores,
-  TipoCompetencia,
-} from "../models/competencias.model.js";
 import { Empresas, Sedes } from "../models/empresas.model.js";
-import {
-  Compromisos,
-  EvaluacionesRealizadas,
-} from "../models/evaluaciones.model.js";
-import { Calificaciones, Respuestas } from "../models/respuestas.model.js";
 import {
   UsuariosEmpresas,
   UsuariosSedes,
@@ -22,6 +11,8 @@ import {
   formatAreasNiveles,
   transformarDatos,
 } from "../utils/calcularPromedios.js";
+
+import ExcelJS from 'exceljs'
 
 export const informeAvancesGraficas = async (req, res, next) => {
   try {
@@ -122,7 +113,7 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       area: area ?? "", // Evita que `LIKE` falle con NULL
       idNivelCargo: idNivelCargo ?? null,
       idEvaluador: idEvaluador ?? null,
-      idEvaluacion,
+      idEvaluacion: idEvaluacion ?? null,
     };
 
 
@@ -141,20 +132,18 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     }
 
     const querySedes = `
-    SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, 
-    COUNT(DISTINCT r2.idColaborador) as Autoevaluacion,
-    COUNT(DISTINCT r.idColaborador) as Evaluacion, 
-    s.idSede, s.nombre 
-    FROM usuarios u 
-    LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador
-    LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador 
-    LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
-    LEFT JOIN Sedes s ON s.idSede = us.idSede 
-    WHERE us.idSede IN (:idSede) ${filtroArea} ${filtroNivelCargo}
-        AND u.activo = 1
-    GROUP BY 
-        s.idSede, s.nombre;
-      `;
+        SELECT COUNT(DISTINCT u.idUsuario) as Usuarios, 
+        COUNT(DISTINCT r2.idColaborador) as Autoevaluacion,
+        COUNT(DISTINCT r.idColaborador) as Evaluacion, 
+        s.idEmpresa, s.idSede, s.nombre 
+        FROM usuarios u 
+        LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador AND r.idEvaluacion = :idEvaluacion
+        LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador AND r2.idEvaluacion = :idEvaluacion
+        LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
+        LEFT JOIN Sedes s ON s.idSede = us.idSede 
+        WHERE u.activo = 1 ${filtroArea} ${filtroNivelCargo}
+        GROUP BY 
+        s.idEmpresa, s.idSede, s.nombre;`;
     const totalUsuariosSede = await Sequelize.query(querySedes, {
       replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
@@ -165,8 +154,8 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
     COUNT(DISTINCT r.idColaborador) as Evaluacion,
     e.idEmpresa, e.nombre
     FROM usuarios u 
-    LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador
-    LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador 
+    LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador AND r.idEvaluacion = :idEvaluacion
+    LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador AND r2.idEvaluacion = :idEvaluacion
     JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal = 1
     JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
     WHERE u.activo = 1 AND (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa) ${filtroArea} ${filtroNivelCargo}
@@ -177,14 +166,15 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
     const query = `
-    SELECT COUNT(DISTINCT u.idUsuario) AS Usuarios,
-    COUNT(DISTINCT r.idColaborador) AS Evaluacion,
-    COUNT(DISTINCT r2.idColaborador) AS Autoevaluacion
-    FROM usuarios u LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador
-    LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador 
-    WHERE u.activo = 1;
-    ;`;
+      SELECT COUNT(DISTINCT u.idUsuario) AS Usuarios,
+      COUNT(DISTINCT r.idColaborador) AS Evaluacion,
+      COUNT(DISTINCT r2.idColaborador) AS Autoevaluacion
+      FROM usuarios u 
+      LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador AND r.idEvaluacion = :idEvaluacion
+      LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador  AND r2.idEvaluacion = :idEvaluacion 
+      WHERE u.activo = 1;`;
     const avanceGlobal = await Sequelize.query(query, {
+      replacements,
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
 
@@ -201,32 +191,43 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
 
 export const informeExcelAvances = async (req, res, next) => {
   try {
-    const { idEmpresa, idSede } = req.query;
+    const { idEmpresa, idSede, idEvaluacion } = req.query;
+
+    if (!(idEmpresa || idSede) && !idEvaluacion){
+      return res.status(400).json({message: 'Falta información para procesar la solicitud'})
+    }
 
     const query = `
-    SELECT 
-    e.idUsuario as documento, 
-    e.nombre, 
-    e2.nombre AS empresa, 
-    s.nombre AS sede, 
-    COUNT(ue2.idUsuario) AS colaboradores,
-    COUNT(CASE WHEN ue2.estado = 1 THEN 1 END) AS respuestas
-  FROM usuarios e 
-  LEFT JOIN usuariosEvaluadores ue2 ON ue2.idEvaluador = e.idUsuario
-  JOIN usuarios u ON u.idUsuario = ue2.idUsuario 
-  LEFT JOIN UsuariosEmpresas ue ON u.idUsuario = ue.idUsuario 
-  JOIN Empresas e2 ON ue.idEmpresa = e2.idEmpresa
-  LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario 
-  LEFT JOIN Sedes s ON s.idSede = us.idSede
-  WHERE (:idSede IS NULL OR s.idSede = :idSede)
-  AND (:idEmpresa IS NULL OR e2.idEmpresa = :idEmpresa)
-    AND (ISNULL(us.principal) OR us.principal = TRUE)
-    AND ue.principal = TRUE AND ue2.deletedAt IS NULL AND u.activo = 1
-  GROUP BY documento, e.nombre, empresa, sede;
+              SELECT 
+              u.idUsuario as documento, 
+              u.nombre, 
+              e.nombre as empresa,
+              COALESCE(s.nombre, '---') as sede,
+              COUNT(ue.idUsuario) AS colaboradores,
+              SUM(CASE WHEN ue2.attempt = 1 THEN 1 ELSE 0 END) AS respuestas
+          FROM usuarios u
+          JOIN usuariosEvaluadores ue 
+              ON u.idUsuario = ue.idEvaluador
+          JOIN usuarios u2 
+              ON u2.idUsuario = ue.idUsuario 
+          JOIN UsuariosEvaluaciones ue2 
+              ON ue2.idUsuario = u2.idUsuario 
+            AND ue2.idTipoEvaluacion = 2
+          JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario AND ue3.principal = 1
+          JOIN Empresas e ON e.idEmpresa = ue3.idEmpresa 
+          LEFT JOIN UsuariosSedes us ON us.idUsuario = u2.idUsuario AND us.principal = 1
+          LEFT JOIN Sedes s ON s.idSede = us.idSede 
+          JOIN UsuariosEmpresas ue4 ON ue4.idUsuario = u2.idUsuario AND ue4.principal = 1
+          WHERE (:idEmpresa IS NULL OR ue4.idEmpresa = :idEmpresa)
+            AND (:idSede IS NULL OR s.idSede = :idSede)
+            AND ue.idEvaluacion = :idEvaluacion 
+            AND ue2.idEvaluacion = :idEvaluacion
+          GROUP BY u.idUsuario, u.nombre, e.nombre, s.nombre  ;
       `;
     const replacements = {
       idSede: idSede || null,
       idEmpresa: idEmpresa || null,
+      idEvaluacion: idEvaluacion || null
     };
     const informe = await Sequelize.query(query, {
       replacements,
@@ -252,7 +253,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
       area: area ?? "", // Evita que `LIKE` falle con NULL
       idNivelCargo: idNivelCargo ?? null,
       idEvaluador: idEvaluador ?? null,
-      idEvaluacion,
+      idEvaluacion: idEvaluacion ?? null,
     };
 
     let filtroNivelCargo = "";
@@ -381,12 +382,13 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
     const replacements = {
       idEmpresa: idEmpresa || null,
       idSede: idSede || null,
-      idEvaluacion,
+      idEvaluacion: idEvaluacion,
       idEvaluador: idEvaluador || null,
     };
     const informe = await Sequelize.query(query, {
       replacements,
       type: Sequelize.QueryTypes.SELECT,
+      logging: true
     });
 
     res.status(200).json({
@@ -400,44 +402,41 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
 
 export const reporteAccionesMejora = async (req, res, next) => {
   try {
-    const reporte = await Usuarios.findAll({
-      include: [
-        {
-          model: Usuarios,
-          as: "evaluadores",
-          through: { attributes: [] },
-          attributes: ["idUsuario", "nombre", "cargo", "area"],
-          where: { activo: true },
-        },
-        {
-          model: EvaluacionesRealizadas,
-          as: "evaluacionesComoColaborador",
-          attributes: ["comentario", "promedio"],
-          required: true,
-          include: [
-            {
-              model: Compromisos,
-              attributes: ["comentario", "estado", "fechaCumplimiento"],
-              required: true,
-              include: [{ model: Competencias, attributes: ["nombre"] }],
-            },
-          ],
-        },
-        {
-          model: Empresas,
-          attributes: ["idEmpresa", "nombre"],
-          through: { attributes: [], where: { principal: true } },
-        },
-        {
-          model: Sedes,
-          attributes: ["idSede", "nombre"],
-          through: { attributes: [], where: { principal: true } },
-        },
-      ],
-      attributes: ["idUsuario", "nombre", "cargo", "area"],
-      where: { activo: true },
+
+    const { idEvaluacion, idEmpresa } = req.query
+
+    const query = `SELECT  CONCAT(e.nombre, " ", e.year) AS evaluacion,u.idUsuario as EvaluadorCC, u.nombre as Evaluador, u.cargo as EvaluadorCargo, u.area as EvaluadorArea, u.activo as activoEvaluador,
+    e2.nombre as EvaluadorEmpresa, s.nombre as sedeEvaluador, u2.idUsuario as ColaboradorCC, u2.nombre as Colaborador, u2.cargo, u2.area, u2.activo,
+    e3.nombre as Empresa, s2.nombre as Sede,
+    c2.nombre as competencia, tc.nombre as tipoCompetencia, c.comentario , c.estado,
+    DATE_FORMAT(c.fechaCumplimiento, '%Y-%m-%d') as fechaCumplimiento
+    FROM EvaluacionesRealizadas er
+    JOIN usuarios u ON u.idUsuario = er.idEvaluador
+    JOIN UsuariosEmpresas ue ON ue.idUsuario = u.idUsuario AND ue.principal = 1
+    JOIN Empresas e2 ON e2.idEmpresa = ue.idEmpresa
+    JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1 
+    JOIN Sedes s ON s.idSede = us.idSede 
+    JOIN usuarios u2 ON u2.idUsuario = er.idColaborador
+    JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u2.idUsuario AND ue2.principal = 1
+    JOIN Empresas e3 ON e3.idEmpresa = ue2.idEmpresa
+    JOIN UsuariosSedes us2 ON us2.idUsuario = u2.idUsuario AND us2.principal = 1 
+    JOIN Sedes s2 ON s2.idSede = us2.idSede
+    JOIN Evaluaciones e ON e.idEvaluacion = er.idEvaluacion 
+    JOIN Compromisos c ON er.idEvalRealizada = c.idEvalRealizada 
+    JOIN Competencias c2 ON c2.idCompetencia = c.idCompetencia 
+    JOIN TipoCompetencia tc ON tc.idTipo = c2.idTipo 
+    WHERE e.idEvaluacion = :idEvaluacion ${idEmpresa != '0' ? 'AND e2.idEmpresa = :idEmpresa;' : ''}`
+    const replacements = {
+      idEvaluacion: idEvaluacion || null,
+      idEmpresa: idEmpresa || null
+    }
+
+    const informe = await Sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
     });
-    res.status(200).json({ message: "Informe acciones de mejora", reporte });
+
+    res.status(200).json({ message: "Informe acciones de mejora", informe });
   } catch (error) {
     next(error);
   }
@@ -446,8 +445,6 @@ export const reporteAccionesMejora = async (req, res, next) => {
 export const informeExcelResultadosDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador, idEvaluacion } = req.query;
-    console.log(idSede, idEmpresa);
-    console.log((!idEmpresa || !idSede));
     if (!idEvaluacion && (!idEmpresa || !idSede)) {
       res.status(400).json({ message: "idEvaluacion is required" });
     }
@@ -492,19 +489,21 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
 };
 
 export const informeParaEvaluador = async (req, res, next) => {
-  const { idEvaluador } = req.params;
+  const { idEvaluador, idEvaluacion } = req.query;
   try {
     const query = `
         SELECT 
         COUNT(DISTINCT ue.idUsuario) AS Usuarios,
         COUNT(DISTINCT er.idColaborador) AS Respuestas
         FROM usuarios u
-        JOIN usuariosEvaluadores ue ON u.idUsuario = ue.idEvaluador
+        JOIN usuariosEvaluadores ue ON u.idUsuario = ue.idEvaluador 
         JOIN usuarios u2 ON ue.idUsuario = u2.idUsuario
-        LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = ue.idUsuario AND er.idTipoEvaluacion = 2
-        WHERE ue.idEvaluador = :idEvaluador AND u2.activo = 1 AND ue.deletedAt IS NULL `;
+        LEFT JOIN UsuariosEvaluaciones ue2 ON ue2.idUsuario = u2.idUsuario
+        LEFT JOIN EvaluacionesRealizadas er ON er.idColaborador = ue.idUsuario AND er.idTipoEvaluacion = 2 AND er.idEvaluacion = :idEvaluacion
+        WHERE ue.idEvaluador = :idEvaluador AND ue.idEvaluacion = :idEvaluacion AND u2.activo = 1 AND ue.deletedAt  IS NULL;`;
     const replacements = {
       idEvaluador: idEvaluador || null,
+      idEvaluacion: idEvaluacion || null
     };
     const informe = await Sequelize.query(query, {
       replacements,
@@ -519,3 +518,36 @@ export const informeParaEvaluador = async (req, res, next) => {
     next(error);
   }
 };
+
+
+export const exportExcel = async (req, res, next) => {
+  try {
+    const { reporteNombre = 'Reporte', columns = [], datos = [] } = req.body;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(reporteNombre);
+
+    // Configurar columnas si se proporcionan
+    if (columns.length > 0) {
+      worksheet.columns = columns.map(col => ({
+        header: col.headerName,
+        key: col.field,
+        width: col.width || 20,
+      }));
+    }
+
+    // Agregar filas
+    datos.forEach(row => worksheet.addRow(row));
+
+    // Preparar respuesta
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${reporteNombre}.xlsx`);
+
+    await workbook.xlsx.write(res);
+
+    res.end();
+
+  } catch (error) {
+    next(error)
+  }
+}

@@ -13,7 +13,7 @@ export const generateToken = async (usuario) => {
               idPerfil: usuario.idPerfil,
             },
             SECRETWORD,
-            { expiresIn: "6h" }
+            { expiresIn: "12h" }
           );
     } catch (error) {
         return error
@@ -21,15 +21,25 @@ export const generateToken = async (usuario) => {
 };
 
 export const validateToken = (req, res, next) => {
-  const token = req.cookies.token;
+
+  let token;
+  if (req.cookies?.token){
+    token = req.cookies.token;
+  }
+  if (!token && req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    if (authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+  }
   if (!token) {
     return res.status(403).json({ message: "Acceso denegado" });
   }
   try {
     const data = jwt.verify(token, process.env.SECRETWORD);
-    res.status(200).json({ message: "Ok", data });
+    res.status(200).json({ message: "Sesión valida", data });
   } catch (error) {
-    next(error);
+    res.status(403).json({ message: "Token inválido o expirado" });
   }
 };
 

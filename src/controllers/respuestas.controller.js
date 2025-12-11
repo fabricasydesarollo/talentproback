@@ -10,13 +10,12 @@ import {
   TipoEvaluaciones,
 } from "../models/evaluaciones.model.js";
 import { Calificaciones, Respuestas } from "../models/respuestas.model.js";
-import { Usuarios, UsuariosEvaluadores } from "../models/usuarios.model.js";
+import { Usuarios, UsuariosEvaluaciones, UsuariosEvaluadores } from "../models/usuarios.model.js";
 import { literal, Op } from "sequelize";
 import Sequelize from "../config/db.js";
 import { downloadPdfs, generateDynamicPdfs } from "../utils/generatepdf.js";
 import jwt from "jsonwebtoken";
 import dontenv from "dotenv";
-import { validateToken } from "../utils/token.js";
 dontenv.config();
 
 export const crearRespuesta = async (req, res, next) => {
@@ -53,13 +52,15 @@ export const crearRespuesta = async (req, res, next) => {
           }
         })
       );
-      const [updatedRows] = await UsuariosEvaluadores.update(
-        { estado: 1 },
+      const [updatedRows] = await UsuariosEvaluaciones.update(
+        { attempt: 1 },
         {
           where: {
-            idEvaluador: respuestas[0].idEvaluador,
+            idEvaluacion: respuestas[0].idEvaluacion,
             idUsuario: respuestas[0].idColaborador,
+            idTipoEvaluacion: respuestas[0].idEvaluador ==  respuestas[0].idColaborador ? 1 : 2
           },
+          logging: true
         }
       );
       // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
@@ -78,26 +79,39 @@ export const obtenerRespuestas = async (req, res, next) => {
       const calificaciones = competencia.Descriptores.flatMap((descriptor) =>
         descriptor.respuestas.map((respuesta) => respuesta.calificacione.valor)
       );
-      const promedio =
-        calificaciones.reduce((acc, val) => acc + val, 0) /
-          calificaciones.length || 0;
+      const lastDescriptor = competencia.Descriptores.at(-1);
+      const registro = lastDescriptor?.respuestas.at(-1)?.createdAt;
+
+      const promedio = calificaciones.reduce((acc, val) => acc + val, 0) / calificaciones.length || 0;
       return {
         idCompetencia: competencia.idCompetencia,
         nombre: competencia.nombre,
         descripcion: competencia.descripcion,
         tipoCompetencia: competencia.TipoCompetencium.nombre,
         promedio,
-        fechaRegistro: competencia.createdAt,
+        fechaRegistro: registro,
       };
     });
   };
 
   try {
     const { idEvaluador, idColaborador, idEvaluacion } = req.query;
+
+    const evaluador = await Sequelize.query(
+        `SELECT u.idUsuario, u.nombre  FROM EvaluacionesRealizadas er 
+        JOIN usuarios u ON er.idEvaluador = u.idUsuario
+        WHERE er.idColaborador = ? AND er.idEvaluacion = ? 
+        AND er.idTipoEvaluacion = '2';`,
+      {
+        replacements: [idColaborador, idEvaluacion],
+        type: Sequelize.QueryTypes.SELECT
+      }
+    );
+
     const compromisos = await EvaluacionesRealizadas.findAll({
       where: {
         idEvaluacion,
-        idColaborador,
+        idColaborador
       },
       include: [
         {
@@ -107,9 +121,8 @@ export const obtenerRespuestas = async (req, res, next) => {
         },
         { model: TipoEvaluaciones, attributes: ["nombre"] },
       ],
-      attributes: ["comentario", "createdAt"],
+      attributes: ["comentario", "retroalimentacion", "createdAt"],
     });
-    let evaluacion;
     const respuesta = await Competencias.findAll({
       include: [
         {
@@ -121,11 +134,11 @@ export const obtenerRespuestas = async (req, res, next) => {
               where: {
                 [Op.and]: [
                   literal("idEvaluador != idColaborador"),
-                  { idColaborador },
-                  { idEvaluacion },
+                  { idColaborador: idColaborador },
+                  { idEvaluacion: idEvaluacion }
                 ],
               },
-              attributes: ["idCalificacion"],
+              attributes: ["idCalificacion", "createdAt"],
               include: [
                 {
                   model: Calificaciones,
@@ -142,9 +155,8 @@ export const obtenerRespuestas = async (req, res, next) => {
           attributes: ["nombre"],
         },
       ],
-      attributes: { exclude: ["updatedAt"] },
+      attributes: { exclude: ["createdAt","updatedAt"] },
     });
-    evaluacion = calcularPromedio(respuesta);
     const autoevaluacion = await Competencias.findAll({
       include: [
         {
@@ -177,12 +189,14 @@ export const obtenerRespuestas = async (req, res, next) => {
       ],
       attributes: { exclude: ["updatedAt"] },
     });
+    
     res
       .status(200)
       .json({
         message: "Ok",
         compromisos,
-        evaluacion,
+        evaluacion: calcularPromedio(respuesta),
+        evaluador,
         autoevaluacion: calcularPromedio(autoevaluacion),
       });
   } catch (error) {

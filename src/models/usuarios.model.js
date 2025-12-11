@@ -59,15 +59,21 @@ export const Usuarios = db.define('usuarios', {
 export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
     idEvaluador: {
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false
     },
     idUsuario: {
         type: DataTypes.INTEGER,
         allowNull: false
     },
-    estado:{
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
+    idEvaluacion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+        references: {
+            model: 'Evaluaciones',
+            key: 'idEvaluacion'
+          },
     },
     deletedAt: {
         type: DataTypes.DATE,
@@ -102,12 +108,29 @@ export const NivelCargo = db.define("nivelCargo",{
 export const UsuariosEvaluaciones = db.define("UsuariosEvaluaciones", {
     idUsuario:{
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false
     },
     idEvaluacion:{
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false
     },
+    idTipoEvaluacion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        primaryKey: true
+    },
+    attempt: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    maxAttempts: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1
+    }
 })
 
 export const UsuariosSedes = db.define("UsuariosSedes", {
@@ -129,11 +152,11 @@ export const UsuariosSedes = db.define("UsuariosSedes", {
         defaultValue: true,
         allowNull: false
     },
-    // deletedAt: {
-    //     type: DataTypes.DATE,
-    //     defaultValue: null,
-    //     allowNull: true
-    // }
+    deletedAt: {
+        type: DataTypes.DATE,
+        defaultValue: null,
+        allowNull: true
+    }
 })
 export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
     idUsuario: {
@@ -156,9 +179,9 @@ export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
         defaultValue: true,
         allowNull: false
     },
-    // deletedAt: {
-    //     type: DataTypes.DATE,
-    //     defaultValue: null,
-    //     allowNull: true
-    // }
+    deletedAt: {
+        type: DataTypes.DATE,
+        defaultValue: null,
+        allowNull: true
+    }
 })

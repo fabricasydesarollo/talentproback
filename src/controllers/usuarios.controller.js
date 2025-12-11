@@ -15,6 +15,7 @@ import {
   UsuariosSedes,
 } from "../models/usuarios.model.js";
 import { hashPassword } from "../utils/hashPassword.js";
+import Sequelize from "../config/db.js";
 import { Op } from "sequelize";
 
 export const obtenerUnicoUsuario = async (req, res, next) => {
@@ -28,7 +29,7 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
           model: Usuarios,
           as: "colaboradores",
           attributes: ["idUsuario", "nombre", "cargo"],
-          through: { attributes: [], where: { deletedAt: null } },
+          through: { attributes: ['idEvaluacion'], where: { deletedAt: null } },
         },
         {
           model: Empresas,
@@ -45,11 +46,11 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
     const evaluacion = await EvaluacionesRealizadas.findAll({
       where: { idColaborador: idUsuario },
       include: [
-        { model: TipoEvaluaciones, attributes: ["nombre"] },
+        { model: TipoEvaluaciones, attributes: ["idTipoEvaluacion","nombre"] },
         {
           model: Evaluaciones,
           as: "evaluacion",
-          attributes: ["nombre", "año", "activa"],
+          attributes: ["nombre", "year", "activa"],
         },
         { model: Usuarios, as: "evaluador", attributes: ["nombre"] },
       ],
@@ -81,8 +82,9 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
     //1. Extraer todos los idUsuarios que existen de ese idEvaluador
 
     const idEvaluador = usuarios[0].idEvaluador;
+    const idEvaluacion = usuarios[0].idEvaluacion
     const registro = await UsuariosEvaluadores.findAll({
-      where: { idEvaluador },
+      where: { idEvaluador, idEvaluacion },
     });
     const eliminar = registro.filter(
       (reg) => !usuarios.some((usuario) => usuario.idUsuario === reg.idUsuario)
@@ -104,25 +106,25 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
         if (!idUsuario && idEvaluador) {
           await UsuariosEvaluadores.update(
             { deletedAt: null },
-            { where: { idEvaluador, idUsuario } }
+            { where: { idEvaluador, idUsuario, idEvaluacion } }
           );
           return { success: `Se elimina lista de usuarios ${idEvaluador}` };
         }
-        if (idEvaluador && idUsuario) {
+        if (idEvaluador && idUsuario && idEvaluacion) {
           try {
             // Verificar si ya existe
             const existe = await UsuariosEvaluadores.findOne({
-              where: { idEvaluador, idUsuario },
+              where: { idEvaluador, idUsuario, idEvaluacion },
             });
             if (existe) {
               await UsuariosEvaluadores.update(
                 { deletedAt: null },
-                { where: { idEvaluador, idUsuario } }
+                { where: { idEvaluador, idUsuario, idEvaluacion } }
               );
             }
             if (!existe) {
               // Crear solo si no existe
-              await UsuariosEvaluadores.create({ idEvaluador, idUsuario });
+              await UsuariosEvaluadores.create({ idEvaluador, idUsuario, idEvaluacion });
             }
             return {
               success: `Usuario ${idUsuario} asignado a evaluador ${idEvaluador}`,
@@ -224,8 +226,17 @@ export const crearUsuario = async (req, res, next) => {
       idNivelCargo,
     } = req.body;
 
-    if (!idUsuario || !nombre || !cargo || !contrasena || !idPerfil || !idNivelCargo || !area || !fechaIngreso) {
-      res.status(400).json({message: "Faltan datos necesarios"})
+    if (
+      !idUsuario ||
+      !nombre ||
+      !cargo ||
+      !contrasena ||
+      !idPerfil ||
+      !idNivelCargo ||
+      !area ||
+      !fechaIngreso
+    ) {
+      res.status(400).json({ message: "Faltan datos necesarios" });
     }
 
     const password = await hashPassword(contrasena);
@@ -240,7 +251,7 @@ export const crearUsuario = async (req, res, next) => {
       area,
       fechaIngreso,
       defaultContrasena: true,
-      activo: true
+      activo: true,
     });
     res.status(201).json({ message: "Ok", data: respuesta });
   } catch (error) {
@@ -301,7 +312,7 @@ export const obtenerUsuariosSedes = async (req, res, next) => {
       include: [
         {
           model: Sedes,
-          attributes: ["idSede", "nombre", "siglas"],
+          attributes: ["idSede", "nombre", "siglas", "idEmpresa"],
           through: { attributes: [], where: { reportes: true } },
         },
         {
@@ -320,29 +331,59 @@ export const obtenerUsuariosSedes = async (req, res, next) => {
 
 export const asignarUsuariosSedes = async (req, res, next) => {
   try {
-    const { idUsuario, idEmpresa, idSede, principal, repEmpresa, repSede, activo } = req.body;
+    const {
+      idUsuario,
+      idEmpresa,
+      idSede,
+      principal,
+      repEmpresa,
+      repSede,
+      activo,
+    } = req.body;
 
-    if ([idUsuario, idEmpresa, idSede, principal, repEmpresa, repSede, activo].includes(null)) {
-      return res.status(400).json({ message: "Faltan datos necesarios para el registro!" });
+    if (
+      [
+        idUsuario,
+        idEmpresa,
+        idSede,
+        principal,
+        repEmpresa,
+        repSede,
+        activo,
+      ].includes(null)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Faltan datos necesarios para el registro!" });
     }
 
     const empresaExiste = await UsuariosEmpresas.findOne({
       where: {
-        [Op.and]: [{ idEmpresa }, { idUsuario }]
-      }
+        [Op.and]: [{ idEmpresa }, { idUsuario }],
+      },
     });
     if (!empresaExiste) {
-      await UsuariosEmpresas.create({ idUsuario, idEmpresa, principal, reportes: repEmpresa });
+      await UsuariosEmpresas.create({
+        idUsuario,
+        idEmpresa,
+        principal,
+        reportes: repEmpresa,
+      });
     }
 
     const sedeExiste = await UsuariosSedes.findOne({
       where: {
-        [Op.and]: [{ idSede }, { idUsuario }]
-      }
+        [Op.and]: [{ idSede }, { idUsuario }],
+      },
     });
 
     if (!sedeExiste) {
-      await UsuariosSedes.create({ idUsuario, idSede, principal, reportes: repSede });
+      await UsuariosSedes.create({
+        idUsuario,
+        idSede,
+        principal,
+        reportes: repSede,
+      });
     }
 
     res.status(200).json({ message: "Transacción ejecutada correctamente" });
@@ -351,20 +392,13 @@ export const asignarUsuariosSedes = async (req, res, next) => {
   }
 };
 
-
 export const usuariosEvaluar = async (req, res, next) => {
   try {
-    const { idUsuario } = req.query;
+    const { idUsuario, idEvaluacion } = req.query;
+
     const respuesta = await Usuarios.findOne({
       where: { idUsuario }, // ID del usuario a consultar
-      attributes: [
-        "idUsuario",
-        "nombre",
-        "cargo",
-        "fechaIngreso",
-        "idNivelCargo",
-        "idPerfil",
-      ],
+      attributes: ["idUsuario"],
       include: [
         {
           model: Usuarios, // Relación con otros usuarios a través de evaluadores
@@ -377,24 +411,22 @@ export const usuariosEvaluar = async (req, res, next) => {
             "idNivelCargo",
           ],
           where: { activo: true },
-          through: { attributes: ["estado"], where: { deletedAt: null } },
-          include: [
-            {
-              model: Sedes,
-              attributes: ["idSede", "nombre"],
-              through: { attributes: [], where: { principal: true } },
+          through: {
+            where: {
+              [Op.and]: [{ deletedAt: null, idEvaluacion: idEvaluacion }],
             },
+          },
+          include: [
             {
               model: Empresas,
               attributes: ["idEmpresa", "nombre", "urlLogo"],
               through: { attributes: [], where: { principal: true } },
             },
+            {
+              model: Evaluaciones,
+              through: { attributes: ["idTipoEvaluacion","attempt", "maxAttempts"] },
+            },
           ],
-        },
-        {
-          model: Sedes,
-          attributes: ["idSede", "nombre"],
-          through: { attributes: [], where: { principal: true } },
         },
         {
           model: Empresas,
@@ -413,7 +445,7 @@ export const usuariosEvaluar = async (req, res, next) => {
         });
       });
     }
-    res.status(200).json({ message: "Ok", data: respuesta });
+    res.status(200).json({ message: "Solicitud procesada con exito", data: respuesta || [] })
   } catch (error) {
     next(error);
   }
@@ -448,3 +480,19 @@ export const actualizarContraseña = async (req, res, next) => {
     next(error);
   }
 };
+
+export const obtenerListaUsuarios = async (req, res, next) => {
+  try {
+    const query = `SELECT u.idUsuario, u.nombre, e2.idEmpresa, e2.nombre as empresa
+    FROM usuarios u
+    LEFT JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal = true
+    LEFT JOIN Empresas e2 ON e2.idEmpresa = ue2.idEmpresa;`
+
+    const resultados = await Sequelize.query(query, {
+      type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
+    });
+    res.status(200).json({message: 'OK', resultados})
+  } catch (error) {
+    next(error)
+  }
+}

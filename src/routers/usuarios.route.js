@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { actualizarContraseña, actualizarUsuario, asignarColaboradoresEvaluar, asignarUsuariosSedes, crearNivelCargo, crearPerfil, crearUsuario, obtenerColaboradores, obtenerNivelCargos, obtenerPerfiles, obtenerUnicoUsuario, obtenerUsuariosSedes, usuariosEvaluar } from "../controllers/usuarios.controller.js";
+import { actualizarContraseña, actualizarUsuario, asignarColaboradoresEvaluar, asignarUsuariosSedes, crearNivelCargo, crearPerfil, crearUsuario, obtenerColaboradores, obtenerListaUsuarios, obtenerNivelCargos, obtenerPerfiles, obtenerUnicoUsuario, obtenerUsuariosSedes, usuariosEvaluar } from "../controllers/usuarios.controller.js";
 import { schemaUser, validateRequest } from "../middleware/validateSchema.js";
-import { loginUsuario } from "../controllers/login.controller.js";
+import { loginUsuario, obtenerAutoevaluaciones } from "../controllers/login.controller.js";
 import { logoutSession, validateToken } from "../utils/token.js";
 
 const router = Router()
@@ -16,7 +16,11 @@ router.route("/colaboradores")
     
 router.route("/login")
     .post(loginUsuario)
-    
+
+router.route("/misEvaluaciones")
+    .get(obtenerAutoevaluaciones)
+
+
 router.route("/:idUsuario")
     .put(actualizarUsuario)
     .patch(actualizarContraseña)
@@ -41,5 +45,8 @@ router.route("/sesion")
     
 router.route("/logout")
     .post(logoutSession)
+
+router.route("/obtenerListaUsuarios")
+    .get(obtenerListaUsuarios)
 
 export default router

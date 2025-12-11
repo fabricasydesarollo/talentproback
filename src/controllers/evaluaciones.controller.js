@@ -10,7 +10,7 @@ import {
   EvaluacionesRealizadas,
 } from "../models/evaluaciones.model.js";
 import { Respuestas } from "../models/respuestas.model.js";
-import { NivelCargo, UsuariosEvaluadores } from "../models/usuarios.model.js";
+import { NivelCargo, UsuariosEvaluaciones, UsuariosEvaluadores } from "../models/usuarios.model.js";
 import Sequelize from "../config/db.js";
 import { Op } from "sequelize";
 
@@ -38,11 +38,15 @@ export const obtenerEvaluacionesActivas = async (req, res, next) => {
 
 export const obtenerEvaluacion = async (req, res, next) => {
   try {
-    const { idEmpresa, idNivelCargo } = req.query;
+    const { idEmpresa, idNivelCargo, idEvaluacion } = req.query;
+
+    if(!idEmpresa || !idNivelCargo || !idEvaluacion){
+      res.status(400).json({message: 'Hacen falta datos para completar la operación'})
+    }
 
     const activa = await Evaluaciones.findOne({
       where: {
-        [Op.and]: [{ activa: true }, { idEvaluacion: 1 }]
+        [Op.and]: [{ activa: true }, { idEvaluacion: idEvaluacion }]
       }
     });
 
@@ -88,7 +92,9 @@ export const obtenerEvaluacion = async (req, res, next) => {
               },
             ],
           },
-        ],
+        ],where: {
+          idEvaluacion: idEvaluacion
+        }
       });
     } else {
       respuesta = await Evaluaciones.findOne({
@@ -126,7 +132,9 @@ export const obtenerEvaluacion = async (req, res, next) => {
               },
             ],
           },
-        ],
+        ],where: {
+          idEvaluacion: idEvaluacion
+        }
       });
     }
 
@@ -166,7 +174,7 @@ export const obtenerTipoEvaluacion = async (req, res, next) => {
 
 export const agregarComentarioGeneral = async (req, res, next) => {
   try {
-    const { idColaborador, idEvaluador, idEvaluacion, comentario,promedio } = req.body;
+    const { idColaborador, idEvaluador, idEvaluacion, comentario, promedio, retroalimentacion } = req.body;
 
     let idTipoEvaluacion = 2;
     if (idColaborador == idEvaluador) {
@@ -194,6 +202,7 @@ export const agregarComentarioGeneral = async (req, res, next) => {
       idEvaluacion,
       idTipoEvaluacion,
       comentario,
+      retroalimentacion,
       promedio
     });
 
@@ -224,7 +233,7 @@ export const obtenerComentariosPorUsuario = async (req, res, next) => {
           attributes: {exclude: ["idEvalRealizada", "idCompetencia", "updatedAt", "createdAt"]}
         },
       ],
-      attributes: ["idEvalRealizada","comentario"]
+      attributes: ["idEvalRealizada","comentario", "retroalimentacion"]
     });
     res.status(200).json({ message: "Ok", data: respuesta || [] });
   } catch (error) {
@@ -275,7 +284,6 @@ export const crearCompromiso = async (req, res, next) => {
       idEvalRealizada,
       comentario,
       estado,
-      Retroalimentacion,
       fechaCumplimiento,
     } = req.body;
     const respuesta = await Compromisos.create({
@@ -283,7 +291,6 @@ export const crearCompromiso = async (req, res, next) => {
       idEvalRealizada,
       comentario,
       estado,
-      Retroalimentacion,
       fechaCumplimiento,
     });
     res.status(200).json({ message: "Ok", data: respuesta });
@@ -341,7 +348,7 @@ export const evaluacionesDisponibles = async (req, res, next) => {
 
 export const eliminarEvaluacion = async (req, res, next) => {
   try {
-    const { idColaborador, idEvaluador, idEvaluacion } = req.query
+    const { idColaborador, idEvaluador, idEvaluacion, idTipoEvaluacion } = req.query
     const existeRespuesta = await Respuestas.findOne({where: {idColaborador, idEvaluador, idEvaluacion}})
     const existeRealizada = await EvaluacionesRealizadas.findOne({where: {idColaborador, idEvaluador, idEvaluacion}})
     const existeEvaluador = await UsuariosEvaluadores.findOne({where: {idEvaluador, idUsuario: idColaborador}})
@@ -349,7 +356,7 @@ export const eliminarEvaluacion = async (req, res, next) => {
     if (existeRespuesta || existeRealizada || existeEvaluador) {
       const eliminado = await Respuestas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
       const eliminadoRealizado = await EvaluacionesRealizadas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
-      const actualizarEvaluador = await UsuariosEvaluadores.update({estado: false}, {where: {idEvaluador, idUsuario: idColaborador}})
+      const actualizarEvaluador = await UsuariosEvaluaciones.update({attempt: false}, {where: {idUsuario: idColaborador, idEvaluacion: idEvaluacion, idTipoEvaluacion: idTipoEvaluacion}})
       res.status(200).json({ message: "Ok", eliminado, eliminadoRealizado, actualizarEvaluador });
     }else {
       res.status(400).json({ message: "No existe información para actualizar" });
@@ -366,3 +373,107 @@ export const generarpdfcontroller = async (req, res, next) => {
     next(error)
   }
 }
+
+
+export const asignarEvalucionUsuarios = async (req, res, next) => {
+  try {
+    const { ListaAsignar } = req.body;
+    if (!ListaAsignar || ListaAsignar.length === 0) {
+      return res.status(400).json({ message: 'No hay información suficiente para continuar' });
+    }
+
+    for (const usuario of ListaAsignar) {
+      if (usuario.autoevaluacion && usuario.evaluacion) {
+        await UsuariosEvaluaciones.findOrCreate({
+          where: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 1
+          },
+          defaults: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 1
+          }
+        });
+
+        await UsuariosEvaluaciones.findOrCreate({
+          where: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 2
+          },
+          defaults: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 2
+          }
+        });
+
+      } else if (usuario.autoevaluacion) {
+        await UsuariosEvaluaciones.findOrCreate({
+          where: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 1
+          },
+          defaults: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 1
+          }
+        });
+
+      } else {
+        await UsuariosEvaluaciones.findOrCreate({
+          where: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 2
+          },
+          defaults: {
+            idUsuario: usuario.idUsuario,
+            idEvaluacion: usuario.idEvaluacion,
+            idTipoEvaluacion: 2
+          }
+        });
+      }
+    }
+
+    res.status(201).json({ message: "Ok" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+export const obtenerEvaluacionesAsignadas = async (req, res, next) => {
+  try {
+    const { idEvaluacion } = req.query;
+
+    if (!idEvaluacion) {
+      return res.status(400).json({ message: "Falta el parámetro idEvaluacion" });
+    }
+
+    const query = `
+      SELECT 
+        ue.idUsuario,
+        ue.idEvaluacion,
+        MAX(CASE WHEN ue.idTipoEvaluacion = 1 THEN 1 ELSE 0 END) AS Autoevaluacion,
+        MAX(CASE WHEN ue.idTipoEvaluacion = 2 THEN 1 ELSE 0 END) AS Evaluacion
+      FROM UsuariosEvaluaciones ue
+      WHERE ue.idEvaluacion = :idEvaluacion
+      GROUP BY ue.idUsuario, ue.idEvaluacion;
+    `;
+
+    const resultados = await Sequelize.query(query, {
+      replacements: { idEvaluacion }, // Aquí se pasa el parámetro
+      type: Sequelize.QueryTypes.SELECT,
+    });
+
+    res.status(200).json({ message: "Ok", resultados });
+  } catch (error) {
+    next(error);
+  }
+};

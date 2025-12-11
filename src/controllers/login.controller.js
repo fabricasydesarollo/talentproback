@@ -1,4 +1,5 @@
 import { Empresas, Sedes } from "../models/empresas.model.js";
+import { Evaluaciones } from "../models/evaluaciones.model.js";
 import { Usuarios } from "../models/usuarios.model.js";
 import { comparePassword } from "../utils/hashPassword.js";
 import { generateToken } from "../utils/token.js";
@@ -31,6 +32,10 @@ export const loginUsuario = async (req, res, next) => {
             attributes: { exclude: ["idHub", "createdAt", "updatedAt"] },
             through: { attributes: [], where: { principal: true }, },
           },
+          {
+            model: Evaluaciones,
+            through: {attributes: ['idTipoEvaluacion','attempt','maxAttempts'], where: { idTipoEvaluacion: 1 }}
+          }
         ],
       });
       const contrasenaValida = await comparePassword(
@@ -49,7 +54,7 @@ export const loginUsuario = async (req, res, next) => {
         usuarioSedes.dataValues.defaultContrasena = defaultContrasena;
         res
           .status(200)
-          .json({ message: "Inicio de sesión exitoso.", data: usuarioSedes });
+          .json({ message: "Inicio de sesión exitoso.", data: usuarioSedes, token });
       } else {
         res.status(400).json({ message: "Credenciales invalidas." });
       }
@@ -62,3 +67,31 @@ export const loginUsuario = async (req, res, next) => {
     next(error);
   }
 };
+
+export const obtenerAutoevaluaciones = async (req, res, next) => {
+  try {
+    const { idUsuario } = req.query
+
+    if (!idUsuario){
+      return res.status(400).json({message: 'Hace falta información para procesar la solicitud'})
+    }
+
+    const evaluaciones = await Usuarios.findOne({
+      where: { idUsuario },
+      attributes:[],
+      include: [
+        {
+          model: Evaluaciones,
+          through: {attributes: ['idTipoEvaluacion','attempt','maxAttempts'], where: { idTipoEvaluacion: 1 }}
+        }
+      ]
+    })
+
+          model: Evaluaciones,
+          res.status(200).json({message: 'Autorvaluaciones obtenidas correctamente', evaluaciones})
+
+
+  } catch (error) {
+    next(error)
+  }
+}

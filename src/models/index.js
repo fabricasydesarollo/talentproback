@@ -38,7 +38,6 @@ const initModels = () => {
     Usuarios.belongsToMany(Evaluaciones, {through: UsuariosEvaluaciones, foreignKey: 'idUsuario'})
     Evaluaciones.belongsToMany(Usuarios, {through: UsuariosEvaluaciones, foreignKey: 'idEvaluacion'})
 
-
     NivelCargo.hasMany(Usuarios, { foreignKey: 'idNivelCargo' })
     Usuarios.belongsTo(NivelCargo, { foreignKey: 'idNivelCargo' })
 
@@ -60,8 +59,11 @@ const initModels = () => {
     Perfiles.hasMany(Usuarios, { foreignKey: 'idPerfil' })
     Usuarios.belongsTo(Perfiles, { foreignKey: 'idPerfil' })
 
-    Usuarios.belongsToMany(Usuarios, { through: UsuariosEvaluadores, as: 'evaluadores', foreignKey: 'idUsuario', otherKey: 'idEvaluador' })
-    Usuarios.belongsToMany(Usuarios, { through: UsuariosEvaluadores, as: 'colaboradores', foreignKey: 'idEvaluador', otherKey: 'idUsuario' })
+    Usuarios.belongsToMany(Usuarios, { through: UsuariosEvaluadores, as: 'evaluadores', foreignKey: 'idUsuario' })
+    Usuarios.belongsToMany(Usuarios, { through: UsuariosEvaluadores, as: 'colaboradores', foreignKey: 'idEvaluador'})
+
+    UsuariosEvaluadores.belongsTo(Evaluaciones, { foreignKey: 'idEvaluacion' });  
+    Evaluaciones.hasMany(UsuariosEvaluadores, { foreignKey: 'idEvaluacion' });
 
     Usuarios.belongsToMany(Usuarios, { through: Respuestas, as: "colaboradoresResp", foreignKey: "idColaborador" })
     Usuarios.belongsToMany(Usuarios, { through: Respuestas, as: "evaluadoresResp", foreignKey: "idEvaluador" })

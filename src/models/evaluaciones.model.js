@@ -13,13 +13,18 @@ export const Evaluaciones = db.define("Evaluaciones", {
         type: DataTypes.STRING,
         allowNull: false
     },
-    año: {
-        type: DataTypes.INTEGER,
-        validate: {
-            isInt: true,
-            min: new Date().getFullYear()
-        },
-        allowNull: false
+    year: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: new Date().getFullYear()
+    },
+    fechaInicio: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    fechaFin: {
+        type: DataTypes.DATE,
+        allowNull: true
     },
     activa: {
         type: DataTypes.BOOLEAN,
@@ -77,6 +82,10 @@ export const EvaluacionesRealizadas= db.define("EvaluacionesRealizadas", {
         type: DataTypes.FLOAT,
         defaultValue: 0,
         allowNull: true
+    },
+    retroalimentacion: {
+        type:DataTypes.BOOLEAN,
+        allowNull: true
     }
 });
 
@@ -107,11 +116,6 @@ export const Compromisos = db.define("Compromisos", {
     fechaCumplimiento: {
         type: DataTypes.DATE,
         allowNull: false
-    },
-    Retroalimentacion: {
-        type: DataTypes.BOOLEAN,
-        allowNull: true,
-        defaultValue: false
     }
 });
 
