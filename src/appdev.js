@@ -15,6 +15,9 @@ dontenv.config()
 
 const app = express()
 
+app.use(express.json({ limit: "3mb" })); 
+app.use(express.urlencoded({ limit: "3mb", extended: true }));
+
 app.use(express.json())
 app.use(cookieParser())
 initTask() // ⏳ Ejecutar cron jobs al iniciar el servidor

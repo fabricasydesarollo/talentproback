@@ -75,6 +75,11 @@ export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
             key: 'idEvaluacion'
           },
     },
+    completado: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue: 0
+    },
     deletedAt: {
         type: DataTypes.DATE,
         defaultValue: null
