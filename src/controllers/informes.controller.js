@@ -12,7 +12,7 @@ import {
   transformarDatos,
 } from "../utils/calcularPromedios.js";
 
-import ExcelJS from 'exceljs'
+import ExcelJS from "exceljs";
 
 export const informeAvancesGraficas = async (req, res, next) => {
   try {
@@ -101,7 +101,8 @@ export const informeAvancesGraficas = async (req, res, next) => {
 };
 export const informeAvancesGraficasAll = async (req, res, next) => {
   try {
-    const { idSede, idEmpresa, area, idNivelCargo, idEvaluador, idEvaluacion } = req.query;
+    const { idSede, idEmpresa, area, idNivelCargo, idEvaluador, idEvaluacion } =
+      req.query;
 
     if (!idEvaluacion) {
       res.status(400).json({ message: "La evaluación es requerida!" });
@@ -115,7 +116,6 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       idEvaluador: idEvaluador ?? null,
       idEvaluacion: idEvaluacion ?? null,
     };
-
 
     let filtroNivelCargo = "";
     if (idNivelCargo) {
@@ -193,8 +193,10 @@ export const informeExcelAvances = async (req, res, next) => {
   try {
     const { idEmpresa, idSede, idEvaluacion } = req.query;
 
-    if (!(idEmpresa || idSede) && !idEvaluacion){
-      return res.status(400).json({message: 'Falta información para procesar la solicitud'})
+    if (!(idEmpresa || idSede) && !idEvaluacion) {
+      return res
+        .status(400)
+        .json({ message: "Falta información para procesar la solicitud" });
     }
 
     const query = `
@@ -227,7 +229,7 @@ export const informeExcelAvances = async (req, res, next) => {
     const replacements = {
       idSede: idSede || null,
       idEmpresa: idEmpresa || null,
-      idEvaluacion: idEvaluacion || null
+      idEvaluacion: idEvaluacion || null,
     };
     const informe = await Sequelize.query(query, {
       replacements,
@@ -241,7 +243,8 @@ export const informeExcelAvances = async (req, res, next) => {
 
 export const informeResultadosGraficas = async (req, res, next) => {
   try {
-    const { idSede, idEmpresa, idEvaluador, idEvaluacion, area, idNivelCargo } = req.query;
+    const { idSede, idEmpresa, idEvaluador, idEvaluacion, area, idNivelCargo } =
+      req.query;
 
     if (!idEvaluacion) {
       res.status(400).json({ message: "El la evaluación es requerida!" });
@@ -269,7 +272,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
     if (idEvaluador) {
       filtroEvaluador = `r.idEvaluacion = :idEvaluacion AND r.idEvaluador = :idEvaluador ${filtroNivelCargo} ${filtroArea}`;
     }
-    const filtro = `(ue.idEmpresa = :idEmpresa OR us.idSede = :idSede) ${filtroNivelCargo} ${filtroArea} AND r.idEvaluacion = :idEvaluacion`
+    const filtro = `(ue.idEmpresa = :idEmpresa OR us.idSede = :idSede) ${filtroNivelCargo} ${filtroArea} AND r.idEvaluacion = :idEvaluacion`;
 
     const query2 = `
       SELECT 
@@ -287,7 +290,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
       JOIN Competencias c ON c.idCompetencia = d.idCompetencia
       JOIN TipoCompetencia tc ON tc.idTipo = c.idTipo  
       JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-      WHERE ${idEvaluador ? filtroEvaluador : filtro }
+      WHERE ${idEvaluador ? filtroEvaluador : filtro}
       GROUP BY c.idCompetencia, c.nombre, tipoCompetencia;
     `;
 
@@ -302,7 +305,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
       JOIN Descriptores d ON r.idDescriptor = d.idDescriptor 
       JOIN Competencias c ON c.idCompetencia = d.idCompetencia
       JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-      WHERE ${idEvaluador ? filtroEvaluador : filtro }
+      WHERE ${idEvaluador ? filtroEvaluador : filtro}
       GROUP BY u.idUsuario;
     `;
 
@@ -311,7 +314,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
     JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
     JOIN nivelCargos nc ON nc.idNivelCargo = u.idNivelCargo 
     WHERE ue.idEmpresa = :idEmpresa OR us.idSede = :idSede 
-    GROUP BY u.area, nc.idNivelCargo, nc.nombre; ` 
+    GROUP BY u.area, nc.idNivelCargo, nc.nombre; `;
 
     const dataSelect = await Sequelize.query(query3, {
       replacements,
@@ -332,8 +335,7 @@ export const informeResultadosGraficas = async (req, res, next) => {
       message: "Informes",
       data: respuesta,
       informe,
-      dataSelect: formatAreasNiveles(dataSelect)
-      
+      dataSelect: formatAreasNiveles(dataSelect),
     });
   } catch (error) {
     next(error);
@@ -344,8 +346,10 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
   try {
     const { idSede, idEmpresa, idEvaluador, idEvaluacion } = req.query;
     if (!idEvaluacion) {
-      res.status(400).json({ message: "idEvaluacion and idEmpresa is required" });
-      return
+      res
+        .status(400)
+        .json({ message: "idEvaluacion and idEmpresa is required" });
+      return;
     }
 
     const query = `
@@ -376,7 +380,8 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
         LEFT JOIN Sedes s ON s.idSede = us.idSede 
         JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario 
         JOIN Empresas e2 ON e2.idEmpresa = ue3.idEmpresa AND ue3.principal = 1
-        WHERE (:idEmpresa IS NULL OR e.idEmpresa  = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) AND (eval.idEvaluacion = :idEvaluacion OR eval.idEvaluacion IS NULL AND auto.idEvaluacion = :idEvaluacion OR auto.idEvaluacion IS NULL)
+        WHERE (:idEmpresa IS NULL OR e.idEmpresa  = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) 
+        AND (eval.idEvaluacion = :idEvaluacion AND auto.idEvaluacion = :idEvaluacion)
         GROUP BY ID_Evaluador , Evaluador, cargo_evaluador,empresa_evaluador, ID_Colaborador,
         Colaborador,u.cargo, u.area, Empresa,Sede,fechaIngreso;`;
     const replacements = {
@@ -388,7 +393,6 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
     const informe = await Sequelize.query(query, {
       replacements,
       type: Sequelize.QueryTypes.SELECT,
-      logging: true
     });
 
     res.status(200).json({
@@ -402,8 +406,7 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
 
 export const reporteAccionesMejora = async (req, res, next) => {
   try {
-
-    const { idEvaluacion, idEmpresa } = req.query
+    const { idEvaluacion, idEmpresa } = req.query;
 
     const query = `SELECT  CONCAT(e.nombre, " ", e.year) AS evaluacion,u.idUsuario as EvaluadorCC, u.nombre as Evaluador, u.cargo as EvaluadorCargo, u.area as EvaluadorArea, u.activo as activoEvaluador,
     e2.nombre as EvaluadorEmpresa, s.nombre as sedeEvaluador, u2.idUsuario as ColaboradorCC, u2.nombre as Colaborador, u2.cargo, u2.area, u2.activo,
@@ -425,11 +428,13 @@ export const reporteAccionesMejora = async (req, res, next) => {
     JOIN Compromisos c ON er.idEvalRealizada = c.idEvalRealizada 
     JOIN Competencias c2 ON c2.idCompetencia = c.idCompetencia 
     JOIN TipoCompetencia tc ON tc.idTipo = c2.idTipo 
-    WHERE e.idEvaluacion = :idEvaluacion ${idEmpresa != '0' ? 'AND e2.idEmpresa = :idEmpresa;' : ''}`
+    WHERE e.idEvaluacion = :idEvaluacion ${
+      idEmpresa != "0" ? "AND e2.idEmpresa = :idEmpresa;" : ""
+    }`;
     const replacements = {
       idEvaluacion: idEvaluacion || null,
-      idEmpresa: idEmpresa || null
-    }
+      idEmpresa: idEmpresa || null,
+    };
 
     const informe = await Sequelize.query(query, {
       replacements,
@@ -503,7 +508,7 @@ export const informeParaEvaluador = async (req, res, next) => {
         WHERE ue.idEvaluador = :idEvaluador AND ue.idEvaluacion = :idEvaluacion AND u2.activo = 1 AND ue.deletedAt  IS NULL;`;
     const replacements = {
       idEvaluador: idEvaluador || null,
-      idEvaluacion: idEvaluacion || null
+      idEvaluacion: idEvaluacion || null,
     };
     const informe = await Sequelize.query(query, {
       replacements,
@@ -519,15 +524,27 @@ export const informeParaEvaluador = async (req, res, next) => {
   }
 };
 
-
+import os from 'os'
+import path from "path";
+import fs from 'fs'
 export const exportExcel = async (req, res, next) => {
   try {
-    const { reporteNombre = 'Reporte', columns = [], datos = [] } = req.body;
+    const { reporteNombre = "Reporte", columns = [], datos = [] } = req.body;
 
-    const workbook = new ExcelJS.Workbook();
+
+    // Ruta de archivo temporal
+    const tmpDir = os.tmpdir();
+    const tmpPath = path.join(tmpDir, `${Date.now()}_${reporteNombre}.xlsx`);
+
+    // Workbook en modo streaming escribiendo a archivo
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      filename: tmpPath,
+      useStyles: false,          // reduce tamaño/memoria
+      useSharedStrings: false    // reduce tamaño/memoria
+    });
+
     const worksheet = workbook.addWorksheet(reporteNombre);
 
-    // Configurar columnas si se proporcionan
     if (columns.length > 0) {
       worksheet.columns = columns.map(col => ({
         header: col.headerName,
@@ -536,18 +553,30 @@ export const exportExcel = async (req, res, next) => {
       }));
     }
 
-    // Agregar filas
-    datos.forEach(row => worksheet.addRow(row));
+    // Validar/normalizar filas grandes para evitar undefined/tipos raros
+    for (const rawRow of datos) {
+      const row = {};
+      for (const col of worksheet.columns || []) {
+        const v = rawRow[col.key];
+        row[col.key] = v === undefined ? null : v; // evita undefined
+      }
+      worksheet.addRow(row).commit();
+    }
 
-    // Preparar respuesta
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=${reporteNombre}.xlsx`);
+    // Importante: cerrar hoja y workbook
+    worksheet.commit();
+    await workbook.commit();
 
-    await workbook.xlsx.write(res);
+    // Enviar archivo ya cerrado desde disco
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${reporteNombre}.xlsx"`);
 
-    res.end();
-
+    const readStream = fs.createReadStream(tmpPath);
+    readStream.on("close", () => {
+      fs.unlink(tmpPath, () => {}); // limpia archivo temporal
+    });
+    readStream.pipe(res);
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};

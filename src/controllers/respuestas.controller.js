@@ -60,9 +60,18 @@ export const crearRespuesta = async (req, res, next) => {
             idUsuario: respuestas[0].idColaborador,
             idTipoEvaluacion: respuestas[0].idEvaluador ==  respuestas[0].idColaborador ? 1 : 2
           },
-          logging: true
         }
       );
+      const [updatedRows2] = await UsuariosEvaluadores.update(
+        {completado: true},
+        {
+          where: {
+            idEvaluador: respuestas[0].idEvaluador,
+            idEvaluacion: respuestas[0].idEvaluacion,
+            idUsuario: respuestas[0].idColaborador
+          }
+        }
+      )
       // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
       res.status(200).json({ message: "Ok" });
     } else {

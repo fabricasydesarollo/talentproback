@@ -311,36 +311,31 @@ export const evaluacionesDisponibles = async (req, res, next) => {
   try {
     const { idEvaluador, idColaborador, idEvaluacion } = req.query;
 
-    const disponible = await Respuestas.findOne({
-      where: { idEvaluador, idColaborador, idEvaluacion },
-    });
+    if (!idEvaluador || !idEvaluacion){
+      return res.status(400).json({message: 'Falta información para continuar'})
+    }
 
-    const cantidadEvaluados = await EvaluacionesRealizadas.count({
-      where: {
-        idEvaluador,
-      },
-      distinct: true,
-      col:'idColaborador'
-    });
-
-    const query = `SELECT COUNT(ue.idUsuario) AS total 
-      FROM usuariosEvaluadores ue 
-      JOIN usuarios u ON u.idUsuario = ue.idUsuario 
-      WHERE u.activo = 1 AND ue.idEvaluador = :idEvaluador AND ue.deletedAt IS NULL;`
+    const query = `SELECT 
+                    COUNT(*) AS total,
+                    COALESCE(SUM(CASE WHEN ue.completado = 1 THEN 1 ELSE 0 END), 0) AS completados
+                    FROM usuariosEvaluadores ue
+                    JOIN usuarios u ON u.idUsuario = ue.idUsuario 
+                    WHERE ue.deletedAt IS NULL
+                      AND u.activo = 1 AND
+                      ue.idEvaluador = :idEvaluador 
+                      AND ue.idEvaluacion = :idEvaluacion;`
       const replacements = {
-        idEvaluador: idEvaluador || null,
+        idEvaluador: idEvaluador,
+        idEvaluacion: idEvaluacion
       };
 
-    const cantidadEvaluarResult = await Sequelize.query(query, {
+    const disponible = await Sequelize.query(query, {
         replacements,
         type: Sequelize.QueryTypes.SELECT,
       });
-
-    const cantidadEvaluar = cantidadEvaluarResult[0]?.total || 0;
-      
     res
       .status(200)
-      .json({ disponible: !disponible, porcentageEvaluados:  ((cantidadEvaluados * 100 ) / (cantidadEvaluar + 1))});
+      .json({ message: 'Porcentaje de avance', disponible});
   } catch (error) {
     next(error);
   }

@@ -20,43 +20,73 @@ import { Op } from "sequelize";
 
 export const obtenerUnicoUsuario = async (req, res, next) => {
   try {
-    const { idUsuario, correo } = req.query;
-    const usuario = await Usuarios.findOne({
-      where: { idUsuario } || null,
-      attributes: { exclude: ["contrasena"] },
-      include: [
-        {
-          model: Usuarios,
-          as: "colaboradores",
-          attributes: ["idUsuario", "nombre", "cargo"],
-          through: { attributes: ['idEvaluacion'], where: { deletedAt: null } },
-        },
-        {
-          model: Empresas,
-          through: { attributes: ["principal", "reportes"] },
-          attributes: { exclude: ["createdAt", "updatedAt"] },
-        },
-        {
-          model: Sedes,
-          through: { attributes: ["principal", "reportes"] },
-          attributes: { exclude: ["createdAt", "updatedAt"] },
-        },
-      ],
-    });
-    const evaluacion = await EvaluacionesRealizadas.findAll({
-      where: { idColaborador: idUsuario },
-      include: [
-        { model: TipoEvaluaciones, attributes: ["idTipoEvaluacion","nombre"] },
-        {
-          model: Evaluaciones,
-          as: "evaluacion",
-          attributes: ["nombre", "year", "activa"],
-        },
-        { model: Usuarios, as: "evaluador", attributes: ["nombre"] },
-      ],
-      attributes: ["idEvaluacion", "idEvaluador", "createdAt"],
-    });
-    res.status(200).json({ message: "Ok", data: usuario, evaluacion });
+    const { idUsuario, nombre } = req.query;
+
+    if (!idUsuario) {
+      return res.status(400).json({message: "Faltan datos para procesar la solicitud"})
+    }
+
+    // 1. Usuario principal
+    const [usuario] = await Sequelize.query(
+      `SELECT u.idUsuario, u.nombre, u.cargo, u.area, u.correo, u.fechaIngreso,
+      u.idNivelCargo, u.idPerfil, u.defaultContrasena, u.activo  
+      FROM usuarios u 
+        WHERE u.idUsuario = :idUsuario`,
+      { replacements: { idUsuario }, type: Sequelize.QueryTypes.SELECT }
+    );
+
+    // 2. Empresas
+    const empresas = await Sequelize.query(
+      `SELECT e.idEmpresa, e.nombre, ue.principal, ue.reportes, 1 as activo 
+       FROM UsuariosEmpresas ue
+       JOIN Empresas e ON e.idEmpresa = ue.idEmpresa 
+       WHERE ue.idUsuario = :idUsuario`,
+      { replacements: { idUsuario }, type: Sequelize.QueryTypes.SELECT }
+    );
+
+    // 3. Sedes
+    const sedes = await Sequelize.query(
+      `SELECT s.idSede, s.nombre, s.idEmpresa, us.principal, us.reportes, 1 as activo 
+       FROM UsuariosSedes us 
+       JOIN Sedes s ON us.idSede = s.idSede 
+       WHERE us.idUsuario = :idUsuario`,
+      { replacements: { idUsuario }, type: Sequelize.QueryTypes.SELECT }
+    );
+
+    // 4. Colaboradores (usuarios evaluados por este evaluador)
+    const colaboradores = await Sequelize.query(
+      `SELECT u.idUsuario, ue.idEvaluador, ue.idEvaluacion, u.nombre
+       FROM usuariosEvaluadores ue 
+       JOIN usuarios u ON ue.idUsuario = u.idUsuario AND ue.deletedAt IS NULL
+       WHERE ue.idEvaluador = :idUsuario`,
+      { replacements: { idUsuario }, type: Sequelize.QueryTypes.SELECT }
+    );
+
+    // 5. Evaluaciones realizadas
+    const evaluacion = await Sequelize.query(
+      `SELECT er.idEvaluacion, er.idEvaluador, er.createdAt,
+              te.idTipoEvaluacion, te.nombre as tipoEvaluacion,
+              e.nombre as evaluacionNombre, e.year, e.activa,
+              u.nombre as evaluadorNombre
+       FROM EvaluacionesRealizadas er
+       JOIN TipoEvaluaciones te ON te.idTipoEvaluacion = er.idTipoEvaluacion
+       JOIN Evaluaciones e ON e.idEvaluacion = er.idEvaluacion
+       JOIN usuarios u ON u.idUsuario = er.idEvaluador
+       WHERE er.idColaborador = :idUsuario`,
+      { replacements: { idUsuario }, type: Sequelize.QueryTypes.SELECT }
+    );
+
+    const infoUsuario = {
+      ...usuario,
+      Empresas: empresas,
+      Sedes: sedes,
+      colaboradores
+    }
+
+
+
+    
+    res.status(200).json({ message: "Ok", data: infoUsuario, evaluacion });
   } catch (error) {
     next(error);
   }
@@ -102,10 +132,9 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
 
     const resultados = await Promise.all(
       usuarios.map(async (usuario) => {
-        const { idEvaluador, idUsuario } = usuario;
-        if (!idUsuario && idEvaluador) {
-          await UsuariosEvaluadores.update(
-            { deletedAt: null },
+        const { idEvaluador, idUsuario, idEvaluacion } = usuario;
+        if (!idUsuario && !idEvaluador && !idEvaluacion) {
+          await UsuariosEvaluadores.destroy(
             { where: { idEvaluador, idUsuario, idEvaluacion } }
           );
           return { success: `Se elimina lista de usuarios ${idEvaluador}` };
@@ -496,3 +525,57 @@ export const obtenerListaUsuarios = async (req, res, next) => {
     next(error)
   }
 }
+
+export const buscarUsuarios = async (req, res, next) => {
+  try {
+    const { documento, nombre } = req.query;
+
+    if (documento) {
+      const usuarios = await Usuarios.findAll({
+        where: { idUsuario: documento },
+        attributes: ['idUsuario', 'nombre', 'correo'],
+        include: [
+          {
+            model: Empresas,
+            attributes: ["nombre"],
+            through: { attributes: [], where: { principal: true } },
+          }
+        ]
+      });
+
+      if (usuarios.length > 0) {
+        return res.status(200).json({ message: "Usuario encontrado", usuarios });
+      }
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    if (nombre) {
+      const usuarios = await Usuarios.findAll({
+        where: {
+          nombre: {
+            [Op.like]: `%${nombre}%`
+          }
+        },
+        attributes: ['idUsuario', 'nombre', 'correo'],
+        include: [
+          {
+            model: Empresas,
+            attributes: ["nombre"],
+            through: { attributes: [], where: { principal: true } },
+          }
+        ]
+      });
+
+      if (usuarios.length > 0) {
+        return res.status(200).json({ message: "Usuario encontrado", usuarios });
+      }
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Si no se envió ni documento ni nombre
+    return res.status(400).json({ message: "Debe enviar documento o nombre" });
+
+  } catch (error) {
+    next(error);
+  }
+};

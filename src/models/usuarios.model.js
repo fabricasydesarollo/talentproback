@@ -77,7 +77,7 @@ export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
     },
     completado: {
         type: DataTypes.BOOLEAN,
-        allowNull: false,
+        allowNull: true,
         defaultValue: 0
     },
     deletedAt: {
