@@ -17,6 +17,10 @@ export const Usuarios = db.define('usuarios', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    area: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     correo: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -28,6 +32,10 @@ export const Usuarios = db.define('usuarios', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    fechaIngreso: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
     idNivelCargo: {
         type: DataTypes.INTEGER,
         allowNull: false
@@ -35,6 +43,11 @@ export const Usuarios = db.define('usuarios', {
     idPerfil: {
         type: DataTypes.INTEGER,
         allowNull: false
+    },
+    defaultContrasena: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: 1,
+        allowNull: true
     },
     activo: {
         type: DataTypes.BOOLEAN,
@@ -46,12 +59,26 @@ export const Usuarios = db.define('usuarios', {
 export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
     idEvaluador: {
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false
     },
     idUsuario: {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    idEvaluacion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1,
+        references: {
+            model: 'Evaluaciones',
+            key: 'idEvaluacion'
+          },
+    },
+    deletedAt: {
+        type: DataTypes.DATE,
+        defaultValue: null
+    }
 });
 
 export const Perfiles = db.define("perfiles", {
@@ -81,12 +108,29 @@ export const NivelCargo = db.define("nivelCargo",{
 export const UsuariosEvaluaciones = db.define("UsuariosEvaluaciones", {
     idUsuario:{
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false
     },
     idEvaluacion:{
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false
     },
+    idTipoEvaluacion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        primaryKey: true
+    },
+    attempt: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    maxAttempts: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 1
+    }
 })
 
 export const UsuariosSedes = db.define("UsuariosSedes", {
@@ -98,6 +142,21 @@ export const UsuariosSedes = db.define("UsuariosSedes", {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    principal: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    reportes: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: false
+    },
+    deletedAt: {
+        type: DataTypes.DATE,
+        defaultValue: null,
+        allowNull: true
+    }
 })
 export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
     idUsuario: {
@@ -110,4 +169,19 @@ export const UsuariosEmpresas = db.define("UsuariosEmpresas", {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    principal: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false
+    },
+    reportes: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: false
+    },
+    deletedAt: {
+        type: DataTypes.DATE,
+        defaultValue: null,
+        allowNull: true
+    }
 })

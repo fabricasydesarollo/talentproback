@@ -16,7 +16,6 @@ export const crearDepartamentos = async (req, res, next) => {
         if (!nombre) res.status(400).json({message: "Faltan datos"})
 
         const respuesta = await Departamentos.create({ nombre })
-        console.log(respuesta)
         res.status(201).json({ message: "Creación exitosa", data: respuesta })
     } catch (error) {
         next(error)
@@ -36,8 +35,7 @@ export const crearCiudades = async (req, res, next) =>{
     try {
         const { nombre, idDepartamento } = req.body
         const respuesta = await Ciudades.create({nombre, idDepartamento})
-        res.status(200).json({ message: "Lista de ciudades", data: respuesta })
-        console.log(respuesta)
+        res.status(200).json({ message: "Ciudad creada con exito!", data: respuesta })
     } catch (error) {
         next(error)
     }

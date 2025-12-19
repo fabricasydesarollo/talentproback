@@ -1,0 +1,30 @@
+import { ADMMenus, ADMRutas } from "../models/administrar.model.js";
+import { Perfiles } from "../models/usuarios.model.js";
+
+export const obtenerMenusPorUsuario = async (req, res, next) => {
+  try {
+    const { idPerfil } = req.query;
+    const response = await ADMMenus.findAll({
+      include: [
+        {
+          model: ADMRutas,
+          include: [
+            {
+              model: Perfiles,
+              attributes: [],
+              through: { attributes: [] },
+              where: { idPerfil },
+              required: true
+            },
+          ],
+          attributes: ['idRuta','nomnbre', 'ruta'],
+          required: true
+        },
+      ],
+      attributes: ["idMenu", 'icono', 'nombre']
+    });
+    res.status(200).json({ message: "ok", response });
+  } catch (error) {
+    next(error);
+  }
+};

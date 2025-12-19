@@ -1,0 +1,62 @@
+    const resp = await Usuarios.findAll({
+      attributes: [
+        [
+          Sequelize.fn(
+            "COUNT",
+            Sequelize.fn("DISTINCT", Sequelize.col("usuarios.idUsuario"))
+          ),
+          "Usuarios",
+        ],
+        [
+          Sequelize.fn(
+            "COUNT",
+            Sequelize.fn(
+              "DISTINCT",
+              Sequelize.col("colaboradoresResp.idUsuario")
+            )
+          ),
+          "Respuestas",
+        ], // Contamos usuarios distintos por idUsuario
+      ],
+      where: { activo: true },
+      include: [
+        {
+          model: Usuarios,
+          as: "evaluadores",
+          attributes: ["nombre", "idUsuario"], // No seleccionamos atributos de Usuarios directamente
+          through: { attributes: [] }, // No necesitamos columnas de la tabla intermedia
+          required: false, // Cambiado a false para LEFT JOIN
+        },
+        {
+          model: Usuarios,
+          as: "colaboradoresResp",
+          attributes: [],
+          through: { attributes: [] }, // No necesitamos columnas de la tabla intermedia
+          required: false, // Cambiado a false para LEFT JOIN
+        },
+        {
+          model: Empresas,
+          attributes: ["nombre"],
+          through: { attributes: [] },
+          where: idEmpresa ? { idEmpresa } : {},
+          required: true,
+        },
+        {
+          model: Sedes,
+          attributes: ["nombre"],
+          through: { attributes: [] },
+          where: idSede ? { idSede } : {},
+          required: true,
+        },
+      ],
+      group: [
+        "evaluadores.idUsuario",
+        "Empresas.idEmpresa",
+        "Empresas.nombre",
+        "evaluadores.nombre",
+        "Sedes.nombre",
+      ],
+      distinct: true,
+      raw: true,
+      subQuery: false,
+    });

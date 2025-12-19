@@ -1,19 +1,29 @@
 import { Router } from "express";
-import { actualizarUsuario, asignarUsuariosSedes, crearNivelCargo, crearPerfil, crearUsuario, obtenerNivelCargos, obtenerPerfiles, obtenerUsuarios, obtenerUsuariosSedes, usuariosEvaluar } from "../controllers/usuarios.controller.js";
+import { actualizarContraseña, actualizarUsuario, asignarColaboradoresEvaluar, asignarUsuariosSedes, crearNivelCargo, crearPerfil, crearUsuario, obtenerColaboradores, obtenerListaUsuarios, obtenerNivelCargos, obtenerPerfiles, obtenerUnicoUsuario, obtenerUsuariosSedes, usuariosEvaluar } from "../controllers/usuarios.controller.js";
 import { schemaUser, validateRequest } from "../middleware/validateSchema.js";
-import { loginUsuario } from "../controllers/login.controller.js";
+import { loginUsuario, obtenerAutoevaluaciones } from "../controllers/login.controller.js";
+import { logoutSession, validateToken } from "../utils/token.js";
 
 const router = Router()
 
 router.route("/")
-    .get(obtenerUsuarios)
-    .post(validateRequest(schemaUser), crearUsuario)
+    .get(obtenerUnicoUsuario)
+    .post(crearUsuario)
+
+router.route("/colaboradores")
+    .get(obtenerColaboradores)
+    .post(asignarColaboradoresEvaluar)
     
 router.route("/login")
     .post(loginUsuario)
-    
+
+router.route("/misEvaluaciones")
+    .get(obtenerAutoevaluaciones)
+
+
 router.route("/:idUsuario")
     .put(actualizarUsuario)
+    .patch(actualizarContraseña)
 
 router.route("/perfiles")
     .get(obtenerPerfiles)
@@ -23,10 +33,20 @@ router.route("/nivelcargos")
     .get(obtenerNivelCargos)
     .post(crearNivelCargo)
 
-router.route("/sedes")
+router.route("/empresassedes")
     .get(obtenerUsuariosSedes)
     .post(asignarUsuariosSedes)
+
 router.route("/evaluar")
     .get(usuariosEvaluar)
+
+router.route("/sesion")
+    .get(validateToken)
+    
+router.route("/logout")
+    .post(logoutSession)
+
+router.route("/obtenerListaUsuarios")
+    .get(obtenerListaUsuarios)
 
 export default router

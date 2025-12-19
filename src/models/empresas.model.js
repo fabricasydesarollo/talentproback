@@ -31,9 +31,7 @@ export const Empresas = db.define("Empresas",{
     },
     urlLogo:{
         type: DataTypes.STRING,
-        validate:{
-            isUrl: true
-        }
+        allowNull: false
     },
     idHub: {
         type: DataTypes.INTEGER,
