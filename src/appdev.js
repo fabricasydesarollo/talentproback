@@ -15,13 +15,20 @@ dontenv.config()
 
 const app = express()
 
+app.use(express.json({ limit: "3mb" })); 
+app.use(express.urlencoded({ limit: "3mb", extended: true }));
+
 app.use(express.json())
 app.use(cookieParser())
 initTask() // ⏳ Ejecutar cron jobs al iniciar el servidor
 
 
 app.use(cors({
-  origin: ["https://talentpro-evaluaciones2024.netlify.app", "http://localhost:5173", "https://talentprozentriaqa.netlify.app"],
+  origin: [
+    "https://talentprozentria.netlify.app", 
+    "http://localhost:5173",
+    "https://talentprozentriaqa.netlify.app"
+  ],
     credentials: true
 }))
 
