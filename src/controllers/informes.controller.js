@@ -206,10 +206,10 @@ export const informeExcelAvances = async (req, res, next) => {
               e.nombre as empresa,
               COALESCE(s.nombre, '---') as sede,
               COUNT(ue.idUsuario) AS colaboradores,
-              SUM(CASE WHEN ue2.attempt = 1 THEN 1 ELSE 0 END) AS respuestas
+              SUM(CASE WHEN ue.completado = 1 THEN 1 ELSE 0 END) AS respuestas
           FROM usuarios u
           JOIN usuariosEvaluadores ue 
-              ON u.idUsuario = ue.idEvaluador
+              ON u.idUsuario = ue.idEvaluador AND ue.deletedAt IS NULL
           JOIN usuarios u2 
               ON u2.idUsuario = ue.idUsuario 
           JOIN UsuariosEvaluaciones ue2 
@@ -224,6 +224,8 @@ export const informeExcelAvances = async (req, res, next) => {
             AND (:idSede IS NULL OR s.idSede = :idSede)
             AND ue.idEvaluacion = :idEvaluacion 
             AND ue2.idEvaluacion = :idEvaluacion
+            AND u.activo = 1
+            AND u2.activo = 1
           GROUP BY u.idUsuario, u.nombre, e.nombre, s.nombre  ;
       `;
     const replacements = {
@@ -353,37 +355,42 @@ export const informeExcelAvancesDetalle = async (req, res, next) => {
     }
 
     const query = `
-          SELECT
-          u2.idUsuario as "ID_Evaluador" ,
-            u2.nombre AS "Evaluador",
-            u2.cargo AS "cargo_evaluador",
-            e2.nombre as empresa_evaluador,
-            u.idUsuario AS "ID_Colaborador",
-            u.nombre AS "Colaborador",
-            u.cargo,
-            u.area,
-            e.nombre as Empresa,
-            s.nombre as Sede,
-            DATE_FORMAT(u.fechaIngreso, '%Y-%m-%d') as "fechaIngreso",
-            ROUND(AVG(c_auto.valor), 2) AS "AUTOEVALUACION",
-            ROUND(AVG(c_eval.valor), 2) AS "EVALUACION"
-        FROM usuarios u 
-        JOIN usuariosEvaluadores ue ON ue.idUsuario = u.idUsuario AND ue.deletedAt IS NULL 
-        JOIN usuarios u2 ON ue.idEvaluador = u2.idUsuario
-        LEFT JOIN respuestas auto ON auto.idEvaluador = u.idUsuario AND auto.idColaborador = u.idUsuario 
-        LEFT JOIN calificaciones c_auto ON c_auto.idCalificacion = auto.idCalificacion 
-        LEFT JOIN respuestas eval ON eval.idEvaluador = ue.idEvaluador AND eval.idColaborador = ue.idUsuario 
-        LEFT JOIN calificaciones c_eval ON c_eval.idCalificacion = eval.idCalificacion 
-        JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal  = 1
-        JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
-        LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
-        LEFT JOIN Sedes s ON s.idSede = us.idSede 
-        JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario 
-        JOIN Empresas e2 ON e2.idEmpresa = ue3.idEmpresa AND ue3.principal = 1
-        WHERE (:idEmpresa IS NULL OR e.idEmpresa  = :idEmpresa) AND (:idSede IS NULL OR s.idSede = :idSede) 
-        AND (eval.idEvaluacion = :idEvaluacion AND auto.idEvaluacion = :idEvaluacion)
-        GROUP BY ID_Evaluador , Evaluador, cargo_evaluador,empresa_evaluador, ID_Colaborador,
-        Colaborador,u.cargo, u.area, Empresa,Sede,fechaIngreso;`;
+            SELECT
+            u2.idUsuario as "ID_Evaluador" ,
+              u2.nombre AS "Evaluador",
+              u2.cargo AS "cargo_evaluador",
+              COALESCE(e2.nombre, '-') as empresa_evaluador,
+              nc2.nombre as nivel_cargo,
+              IF(u2.activo, 'Activo', 'Inactivo') as activo,
+              u.idUsuario AS "ID_Colaborador",
+              u.nombre AS "Colaborador",
+              u.cargo,
+              u.area,
+              COALESCE(e.nombre, '-') as Empresa,
+              nc.nombre as nivel_cargo_col,
+              IF(u.activo, 'Activo', 'Inactivo') as activo_col,
+              COALESCE(s.nombre, '-') as Sede,
+              DATE_FORMAT(u.fechaIngreso, '%Y-%m-%d') as "fechaIngreso",
+              COALESCE(ROUND(AVG(c_auto.valor), 2), '-') AS "AUTOEVALUACION",
+              COALESCE(ROUND(AVG(c_eval.valor), 2), '-') AS "EVALUACION"
+          FROM usuarios u 
+          JOIN nivelCargos nc ON nc.idNivelCargo = u.idNivelCargo
+          JOIN usuariosEvaluadores ue ON ue.idUsuario = u.idUsuario AND ue.deletedAt IS NULL AND ue.idEvaluacion = :idEvaluacion
+          JOIN usuarios u2 ON ue.idEvaluador = u2.idUsuario
+          JOIN nivelCargos nc2 ON nc2.idNivelCargo = u2.idNivelCargo 
+          LEFT JOIN respuestas auto ON auto.idEvaluador = u.idUsuario AND auto.idColaborador = u.idUsuario AND auto.idEvaluacion = :idEvaluacion
+          LEFT JOIN calificaciones c_auto ON c_auto.idCalificacion = auto.idCalificacion 
+          LEFT JOIN respuestas eval ON eval.idEvaluador = ue.idEvaluador AND eval.idColaborador = ue.idUsuario AND eval.idEvaluacion = :idEvaluacion
+          LEFT JOIN calificaciones c_eval ON c_eval.idCalificacion = eval.idCalificacion 
+          LEFT JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal  = 1
+          LEFT JOIN Empresas e ON e.idEmpresa = ue2.idEmpresa 
+          LEFT JOIN UsuariosSedes us ON us.idUsuario = u.idUsuario AND us.principal = 1
+          LEFT JOIN Sedes s ON s.idSede = us.idSede 
+          LEFT JOIN UsuariosEmpresas ue3 ON ue3.idUsuario = u2.idUsuario AND ue3.principal = 1
+          LEFT JOIN Empresas e2 ON e2.idEmpresa = ue3.idEmpresa 
+          WHERE (:idEmpresa IS NULL OR e.idEmpresa = :idEmpresa ) AND (:idSede IS NULL OR s.idSede = :idSede)
+          GROUP BY ID_Evaluador , Evaluador, cargo_evaluador,empresa_evaluador, nivel_cargo, activo, ID_Colaborador,
+          Colaborador,u.cargo, u.area, Empresa,Sede,fechaIngreso, nivel_cargo_col, activo_col;`;
     const replacements = {
       idEmpresa: idEmpresa || null,
       idSede: idSede || null,

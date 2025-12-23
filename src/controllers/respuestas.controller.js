@@ -108,31 +108,25 @@ export const obtenerRespuestas = async (req, res, next) => {
 
     const evaluador = await Sequelize.query(
         `SELECT u.idUsuario, u.nombre  FROM respuestas r
-        JOIN usuarios u ON r.idEvaluador = u.idUsuario
-        WHERE r.idColaborador = ? AND r.idEvaluacion = ?
-        AND r.idColaborador  != r.idEvaluador 
-        GROUP BY u.idUsuario, u.nombre ;`,
+          JOIN usuarios u ON r.idEvaluador = u.idUsuario
+          WHERE r.idColaborador = ? AND r.idEvaluacion = ?
+          AND r.idColaborador  != r.idEvaluador 
+          GROUP BY u.idUsuario, u.nombre ;`,
       {
         replacements: [idColaborador, idEvaluacion],
         type: Sequelize.QueryTypes.SELECT
       }
     );
 
-    const compromisos = await EvaluacionesRealizadas.findAll({
-      where: {
-        idEvaluacion,
-        idColaborador
-      },
-      include: [
-        {
-          model: Compromisos,
-          include: [{ model: Competencias, attributes: ["nombre"] }],
-          attributes: ["comentario", "estado", "fechaCumplimiento"],
-        },
-        { model: TipoEvaluaciones, attributes: ["nombre"] },
-      ],
-      attributes: ["comentario", "retroalimentacion", "createdAt"],
-    });
+    const comentarios = await Sequelize.query(`
+            SELECT er.idEvalRealizada as id, er.comentario, er.createdAt as fecha, u.nombre AS evaluador
+            FROM EvaluacionesRealizadas er 
+            JOIN usuarios u ON u.idUsuario = er.idEvaluador 
+            WHERE er.idEvaluacion = ? AND er.idColaborador = ? AND er.idTipoEvaluacion = 2;
+    `, {
+      replacements: [idEvaluacion, idColaborador],
+      type: Sequelize.QueryTypes.SELECT
+    })
     const respuesta = await Competencias.findAll({
       include: [
         {
@@ -204,7 +198,7 @@ export const obtenerRespuestas = async (req, res, next) => {
       .status(200)
       .json({
         message: "Ok",
-        compromisos,
+        comentarios,
         evaluacion: calcularPromedio(respuesta),
         evaluador,
         autoevaluacion: calcularPromedio(autoevaluacion),

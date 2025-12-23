@@ -7,13 +7,13 @@ import { generateToken } from "../utils/token.js";
 export const loginUsuario = async (req, res, next) => {
   const { documento, contrasena } = req.body;
   if (!documento && !contrasena) {
-    res.status(400).json({ message: "Falta información" });
+    return res.status(400).json({ message: "Falta información" });
   }
   try {
     const usuario = await Usuarios.findOne({ where: { idUsuario: documento } });
     if (usuario) {
       if (!usuario.activo) {
-        res.status(200).json({ message: "Usuario inactivo" });
+        return res.status(400).json({ message: "Usuario inactivo" });
       }
       const idUsuario = usuario.idUsuario;
       const usuarioSedes = await Usuarios.findOne({
@@ -52,11 +52,11 @@ export const loginUsuario = async (req, res, next) => {
           httpOnly: false,
         });
         usuarioSedes.dataValues.defaultContrasena = defaultContrasena;
-        res
+        return res
           .status(200)
           .json({ message: "Inicio de sesión exitoso.", data: usuarioSedes, token });
       } else {
-        res.status(400).json({ message: "Credenciales invalidas." });
+        return res.status(400).json({ message: "Credenciales invalidas." });
       }
     } else {
       res
