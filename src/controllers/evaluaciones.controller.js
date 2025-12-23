@@ -352,7 +352,8 @@ export const eliminarEvaluacion = async (req, res, next) => {
       const eliminado = await Respuestas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
       const eliminadoRealizado = await EvaluacionesRealizadas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
       const actualizarEvaluador = await UsuariosEvaluaciones.update({attempt: false}, {where: {idUsuario: idColaborador, idEvaluacion: idEvaluacion, idTipoEvaluacion: idTipoEvaluacion}})
-      res.status(200).json({ message: "Ok", eliminado, eliminadoRealizado, actualizarEvaluador });
+      const actualizarIntento = await UsuariosEvaluadores.update({completado: false}, {where: {idUsuario: idColaborador, idEvaluacion: idEvaluacion, idEvaluador: idEvaluador}})
+      res.status(200).json({ message: "Ok", eliminado, eliminadoRealizado, actualizarEvaluador, actualizarIntento });
     }else {
       res.status(400).json({ message: "No existe información para actualizar" });
     }

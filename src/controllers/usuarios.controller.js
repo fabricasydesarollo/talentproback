@@ -83,9 +83,6 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
       colaboradores
     }
 
-
-
-    
     res.status(200).json({ message: "Ok", data: infoUsuario, evaluacion });
   } catch (error) {
     next(error);
