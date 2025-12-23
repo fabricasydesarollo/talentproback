@@ -107,10 +107,11 @@ export const obtenerRespuestas = async (req, res, next) => {
     const { idEvaluador, idColaborador, idEvaluacion } = req.query;
 
     const evaluador = await Sequelize.query(
-        `SELECT u.idUsuario, u.nombre  FROM EvaluacionesRealizadas er 
-        JOIN usuarios u ON er.idEvaluador = u.idUsuario
-        WHERE er.idColaborador = ? AND er.idEvaluacion = ? 
-        AND er.idTipoEvaluacion = '2';`,
+        `SELECT u.idUsuario, u.nombre  FROM respuestas r
+        JOIN usuarios u ON r.idEvaluador = u.idUsuario
+        WHERE r.idColaborador = ? AND r.idEvaluacion = ?
+        AND r.idColaborador  != r.idEvaluador 
+        GROUP BY u.idUsuario, u.nombre ;`,
       {
         replacements: [idColaborador, idEvaluacion],
         type: Sequelize.QueryTypes.SELECT
