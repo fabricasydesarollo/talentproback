@@ -169,9 +169,10 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       SELECT COUNT(DISTINCT u.idUsuario) AS Usuarios,
       COUNT(DISTINCT r.idColaborador) AS Evaluacion,
       COUNT(DISTINCT r2.idColaborador) AS Autoevaluacion
-      FROM usuarios u 
+      FROM usuarios u
+      JOIN UsuariosEvaluaciones ue ON ue.idUsuario = u.idUsuario AND ue.idEvaluacion = :idEvaluacion
       LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador AND r.idEvaluacion = :idEvaluacion
-      LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador  AND r2.idEvaluacion = :idEvaluacion 
+      LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador  AND r2.idEvaluacion = :idEvaluacion
       WHERE u.activo = 1;`;
     const avanceGlobal = await Sequelize.query(query, {
       replacements,
@@ -478,17 +479,20 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
           JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
           JOIN Competencias c ON c.idCompetencia = d.idCompetencia 
           JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-        WHERE e.idEmpresa IN(:idEmpresa) AND e2.idEmpresa IN(:idEmpresa) OR (:idSede IS NULL OR s.idSede = :idSede) AND r.idEvaluacion = :idEvaluacion AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
-        GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`;
+        WHERE e.idEmpresa IN(:idEmpresa) AND e2.idEmpresa IN(:idEmpresa) 
+          AND (:idSede IS NULL OR s.idSede = :idSede) AND r.idEvaluacion = :idEvaluacion 
+          AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
+          GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, 
+          empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`;
     const replacements = {
       idEmpresa: idEmpresa || null,
-      idSede: idSede || null,
+      idSede: idSede != 0 ? idSede : null,
       idEvaluador: idEvaluador || null,
       idEvaluacion: idEvaluacion,
     };
     const informe = await Sequelize.query(query, {
       replacements,
-      type: Sequelize.QueryTypes.SELECT,
+      type: Sequelize.QueryTypes.SELECT
     });
 
     res.status(200).json({
