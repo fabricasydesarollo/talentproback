@@ -215,14 +215,15 @@ export const agregarComentarioGeneral = async (req, res, next) => {
 
 export const obtenerComentariosPorUsuario = async (req, res, next) => {
   try {
-    const { idColaborador, idEvaluacion } = req.query;
-    if (!idColaborador || !idEvaluacion) {
+    const { idColaborador, idEvaluacion, idEvaluador } = req.query;
+    if (!idColaborador || !idEvaluacion || !idEvaluador) {
       return res.status(400).json({ message: "Faltan parámetros requeridos" });
     }
     const respuesta = await EvaluacionesRealizadas.findOne({
       where: {
         idColaborador,
         idEvaluacion,
+        idEvaluador,
         idTipoEvaluacion: 2
       },
       include: [
@@ -243,7 +244,7 @@ export const obtenerComentariosPorUsuario = async (req, res, next) => {
 
 export const actualizarCompromisosPorUsuario = async (req, res, next) => {
     try {
-      const { idColaborador, idEvaluacion, comentario,  accionesMejoramiento } = req.body;
+      const { idColaborador, idEvaluador,  idEvaluacion, comentario,  accionesMejoramiento } = req.body;
   
       const updateComentario = await EvaluacionesRealizadas.update({
         comentario
@@ -251,6 +252,7 @@ export const actualizarCompromisosPorUsuario = async (req, res, next) => {
         where: {
           idColaborador,
           idEvaluacion,
+          idEvaluador,
           idTipoEvaluacion: 2
         },
       });
