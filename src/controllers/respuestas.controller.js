@@ -22,61 +22,67 @@ export const crearRespuesta = async (req, res, next) => {
   try {
     const { respuestas } = req.body;
 
-    if (respuestas.length > 1) {
-      // Usamos Promise.all para manejar todas las respuestas de manera asíncrona
-      await Promise.all(
-        respuestas.map(async (respuesta) => {
-          const {
+    
+    if (!Array.isArray(respuestas) || respuestas.length < 1) {
+      return res.status(400).json({ message: "Falta información para procesar" });
+    }
+
+      
+    const primer_registro = respuestas[0]
+    const { idColaborador, idEvaluador, idEvaluacion } = primer_registro 
+    
+    const existe = await Respuestas.findOne({
+      where: { idColaborador, idEvaluador, idEvaluacion },
+    });
+    
+    if (existe) {
+      return res.status(400).json({ message: "Esta evaluación ya fue resuelta" });
+    }
+
+    // Usamos Promise.all para manejar todas las respuestas de manera asíncrona
+    await Promise.all(
+      respuestas.map(async (respuesta) => {
+        const {
+          idDescriptor,
+          idColaborador,
+          idEvaluador,
+          idEvaluacion,
+          idCalificacion,
+        } = respuesta;
+
+          const result = await Respuestas.create({
             idDescriptor,
             idColaborador,
             idEvaluador,
             idEvaluacion,
             idCalificacion,
-          } = respuesta;
-          const existe = await Respuestas.findOne({
-            where: { idColaborador, idEvaluador, idEvaluacion },
           });
-          if (existe) {
-            return res
-              .status(400)
-              .json({ message: "Esta evaluación ya fue resuelta" });
-          } else {
-            const result = await Respuestas.create({
-              idDescriptor,
-              idColaborador,
-              idEvaluador,
-              idEvaluacion,
-              idCalificacion,
-            });
-            return result;
-          }
-        })
-      );
-      const [updatedRows] = await UsuariosEvaluaciones.update(
-        { attempt: 1 },
-        {
-          where: {
-            idEvaluacion: respuestas[0].idEvaluacion,
-            idUsuario: respuestas[0].idColaborador,
-            idTipoEvaluacion: respuestas[0].idEvaluador ==  respuestas[0].idColaborador ? 1 : 2
-          },
+          return result;
+      })
+    );
+    const [updatedRows] = await UsuariosEvaluaciones.update(
+      { attempt: 1 },
+      {
+        where: {
+          idEvaluacion: respuestas[0].idEvaluacion,
+          idUsuario: respuestas[0].idColaborador,
+          idTipoEvaluacion: respuestas[0].idEvaluador ==  respuestas[0].idColaborador ? 1 : 2
+        },
+      }
+    );
+    const [updatedRows2] = await UsuariosEvaluadores.update(
+      {completado: true},
+      {
+        where: {
+          idEvaluador: respuestas[0].idEvaluador,
+          idEvaluacion: respuestas[0].idEvaluacion,
+          idUsuario: respuestas[0].idColaborador
         }
-      );
-      const [updatedRows2] = await UsuariosEvaluadores.update(
-        {completado: true},
-        {
-          where: {
-            idEvaluador: respuestas[0].idEvaluador,
-            idEvaluacion: respuestas[0].idEvaluacion,
-            idUsuario: respuestas[0].idColaborador
-          }
-        }
-      )
-      // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
-      res.status(200).json({ message: "Ok" });
-    } else {
-      res.status(400).json({ message: "Falta información para procesar" });
-    }
+      }
+    )
+    // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
+    res.status(200).json({ message: "Ok" });
+
   } catch (error) {
     next(error); // Manejar el error correctamente
   }
