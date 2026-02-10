@@ -190,6 +190,28 @@ export const agregarComentarioGeneral = async (req, res, next) => {
       },
     });
 
+    if (idTipoEvaluacion == 2) {
+      await UsuariosEvaluadores.update(
+        {completado: true},
+        {
+          where: {
+            idEvaluador: idEvaluador,
+            idEvaluacion: idEvaluacion,
+            idUsuario: idColaborador
+          }
+        }
+      )
+    } 
+    await UsuariosEvaluaciones.update(
+      {attempt: true},{
+        where: {
+          idUsuario: idColaborador,
+          idEvaluacion: idEvaluacion,
+          idTipoEvaluacion: idTipoEvaluacion
+        }
+      }
+    )
+
     // Si ya existe un comentario, devolver respuesta adecuada
     if (existeComentario) {
       return res.status(409).json({ message: "Ya existe un comentario" });

@@ -13,7 +13,7 @@ export const generateToken = async (usuario) => {
               idPerfil: usuario.idPerfil,
             },
             SECRETWORD,
-            { expiresIn: "12h" }
+            { expiresIn: "6h" }
           );
     } catch (error) {
         return error
