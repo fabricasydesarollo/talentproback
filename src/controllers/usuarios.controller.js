@@ -16,14 +16,16 @@ import {
 } from "../models/usuarios.model.js";
 import { hashPassword } from "../utils/hashPassword.js";
 import Sequelize from "../config/db.js";
-import { Op } from "sequelize";
+import { Op, where } from "sequelize";
 
 export const obtenerUnicoUsuario = async (req, res, next) => {
   try {
     const { idUsuario, nombre } = req.query;
 
     if (!idUsuario) {
-      return res.status(400).json({message: "Faltan datos para procesar la solicitud"})
+      return res
+        .status(400)
+        .json({ message: "Faltan datos para procesar la solicitud" });
     }
 
     // 1. Usuario principal
@@ -64,15 +66,42 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
 
     // 5. Evaluaciones realizadas
     const evaluacion = await Sequelize.query(
-      `SELECT er.idEvaluacion, er.idEvaluador, er.createdAt,
-              te.idTipoEvaluacion, te.nombre as tipoEvaluacion,
-              e.nombre as evaluacionNombre, e.year, e.activa,
-              u.nombre as evaluadorNombre
-       FROM EvaluacionesRealizadas er
-       JOIN TipoEvaluaciones te ON te.idTipoEvaluacion = er.idTipoEvaluacion
-       JOIN Evaluaciones e ON e.idEvaluacion = er.idEvaluacion
-       JOIN usuarios u ON u.idUsuario = er.idEvaluador
-       WHERE er.idColaborador = :idUsuario`,
+      `WITH r_min AS (
+        SELECT 
+          r.idEvaluacion,
+          r.idEvaluador,
+          r.idColaborador,
+          DATE_FORMAT(r.createdAt, '%Y-%m-%d %H:%i') AS createdAtMinute,
+          MAX(r.createdAt) AS createdAtMax
+        FROM respuestas r
+        WHERE r.idColaborador = :idUsuario
+        GROUP BY 
+          r.idEvaluacion, 
+          r.idEvaluador, 
+          r.idColaborador,
+          DATE_FORMAT(r.createdAt, '%Y-%m-%d %H:%i')
+      )
+      SELECT 
+        e.idEvaluacion,
+        rm.idEvaluador,
+        DATE_FORMAT(rm.createdAtMax, '%Y-%m-%d %H:%i') AS createdAt,
+        e.activa, 
+        e.nombre AS evaluacionNombre, 
+        e.year,
+        u.nombre AS evaluadorNombre, 
+        CASE WHEN rm.idColaborador = rm.idEvaluador THEN '1' ELSE '2' END AS idTipoEvaluacion,
+        CASE WHEN rm.idColaborador = rm.idEvaluador THEN 'AUTOEVALUACIÓN' ELSE 'EVALUACIÓN' END AS tipoEvaluacion, 
+        CASE WHEN er.idEvalRealizada IS NULL THEN 'Pendiente' ELSE 'Registrado' END AS comentario
+      FROM r_min rm
+      JOIN Evaluaciones e 
+        ON e.idEvaluacion = rm.idEvaluacion 
+      JOIN usuarios u 
+        ON u.idUsuario = rm.idEvaluador 
+      LEFT JOIN EvaluacionesRealizadas er 
+        ON er.idColaborador = rm.idColaborador 
+       AND er.idEvaluador = rm.idEvaluador 
+       AND er.idEvaluacion = rm.idEvaluacion
+      ORDER BY e.idEvaluacion, rm.idEvaluador, rm.createdAtMax;`,
       { replacements: { idUsuario }, type: Sequelize.QueryTypes.SELECT }
     );
 
@@ -80,8 +109,8 @@ export const obtenerUnicoUsuario = async (req, res, next) => {
       ...usuario,
       Empresas: empresas,
       Sedes: sedes,
-      colaboradores
-    }
+      colaboradores,
+    };
 
     res.status(200).json({ message: "Ok", data: infoUsuario, evaluacion });
   } catch (error) {
@@ -99,84 +128,74 @@ export const obtenerColaboradores = async (req, res, next) => {
   }
 };
 export const asignarColaboradoresEvaluar = async (req, res, next) => {
-  const { usuarios } = req.body;
-  if (!usuarios || usuarios.length === 0) {
-    return res
-      .status(400)
-      .json({ error: "El cuerpo de la solicitud debe contener usuarios." });
-  }
   try {
-    //1. Extraer todos los idUsuarios que existen de ese idEvaluador
+    // 1. Extraer idEvaluador, idUsuario, idEvaluación
 
-    const idEvaluador = usuarios[0].idEvaluador;
-    const idEvaluacion = usuarios[0].idEvaluacion
-    const registro = await UsuariosEvaluadores.findAll({
-      where: { idEvaluador, idEvaluacion },
-    });
-    const eliminar = registro.filter(
-      (reg) => !usuarios.some((usuario) => usuario.idUsuario === reg.idUsuario)
-    );
+    const { usuarios } = req.body ?? {};
 
-    if (eliminar.length > 0) {
-      const idsEliminar = eliminar.map((reg) => reg.idUsuario); // Extraer IDs a eliminar
-      if (idsEliminar.length > 0) {
+    if (!Array.isArray(usuarios) || usuarios.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "El cuerpo de la solicitud debe contener usuarios." });
+    }
+    const { idEvaluador, idEvaluacion, idUsuario } = usuarios[0];
+    const transaction = await Sequelize.transaction();
+    // 2. Extraer los ids de usuarios
+    const ids_usuarios = usuarios.map((u) => u.idUsuario);
+
+    // 3. Si idusuario viene null entonces debe hacer un sof/delete de ese evaluador y esa evaluación (deletedAt: now Date())
+    if (!idUsuario) {
+      const [rowsAffected] = await UsuariosEvaluadores.update(
+        { deletedAt: new Date() },
+        { where: { idEvaluador, idEvaluacion } },
+        transaction
+      );
+      return res
+        .status(200)
+        .json({ message: "Operación exitosa", rowsAffected });
+    }
+    // 4. Validar si el usuario existe y no esta eliminado
+    // 5. Si existe y no esta eliminado (omitir)
+    // 6. Si no existe se debe crear
+    for (const user_d of usuarios) {
+      const { idEvaluador, idEvaluacion, idUsuario } = user_d; // El punto 4, 5 y 6 lo logramos con el findOrCreate
+      const [user] = await UsuariosEvaluadores.findOrCreate({
+        where: { idEvaluador, idEvaluacion, idUsuario },
+        defaults: user_d,
+        transaction
+      });
+
+      // 7. si existe y esta eliminado se debe restaurar (deletedAt : null)
+      if (user.deletedAt) {
         await UsuariosEvaluadores.update(
-          { deletedAt: new Date() },
-          { where: { idUsuario: { [Op.in]: idsEliminar }, idEvaluador } }
+          {
+            deletedAt: null,
+          },
+          { where: { idEvaluador, idEvaluacion, idUsuario } },
+          transaction
         );
       }
     }
-
-    const resultados = await Promise.all(
-      usuarios.map(async (usuario) => {
-        const { idEvaluador, idUsuario, idEvaluacion } = usuario;
-        if (!idUsuario && !idEvaluador && !idEvaluacion) {
-          await UsuariosEvaluadores.destroy(
-            { where: { idEvaluador, idUsuario, idEvaluacion } }
-          );
-          return { success: `Se elimina lista de usuarios ${idEvaluador}` };
+    
+    // 8. Hacer un soft/delete con con los ids de usuarios en update({deletedAt: now Date()}, {where: NOT IN (ids_usuarios) AND idEvaluacion})
+    await UsuariosEvaluadores.update(
+      {
+        deletedAt: new Date()
+      },
+      {
+        where: {
+          idUsuario: {
+            [Op.notIn]: ids_usuarios
+          },
+          idEvaluacion,
+          idEvaluador
         }
-        if (idEvaluador && idUsuario && idEvaluacion) {
-          try {
-            // Verificar si ya existe
-            const existe = await UsuariosEvaluadores.findOne({
-              where: { idEvaluador, idUsuario, idEvaluacion },
-            });
-            if (existe) {
-              await UsuariosEvaluadores.update(
-                { deletedAt: null },
-                { where: { idEvaluador, idUsuario, idEvaluacion } }
-              );
-            }
-            if (!existe) {
-              // Crear solo si no existe
-              await UsuariosEvaluadores.create({ idEvaluador, idUsuario, idEvaluacion });
-            }
-            return {
-              success: `Usuario ${idUsuario} asignado a evaluador ${idEvaluador}`,
-            };
-          } catch (error) {
-            return {
-              error: `Error al asignar usuario ${idUsuario} a evaluador ${idEvaluador}: ${error.message}`,
-            };
-          }
-        } else {
-          return {
-            error: "idEvaluador e idUsuario son requeridos para la operación",
-          };
-        }
-      })
+      }, transaction
     );
-    const errores = resultados.filter((result) => result.error);
-    const exitos = resultados.filter((result) => result.success);
 
-    if (errores.length > 0) {
-      return res.status(400).json({ errors: errores.map((e) => e.error) });
-    }
+    transaction.commit()
 
-    res
-      .status(200)
-      .json({ message: "Usuarios asignados correctamente", detalles: exitos });
+    res.status(200).json({message: 'Usuarios procesados correctamente'});
   } catch (error) {
     next(error);
   }
@@ -450,7 +469,9 @@ export const usuariosEvaluar = async (req, res, next) => {
             },
             {
               model: Evaluaciones,
-              through: { attributes: ["idTipoEvaluacion","attempt", "maxAttempts"] },
+              through: {
+                attributes: ["idTipoEvaluacion", "attempt", "maxAttempts"],
+              },
             },
           ],
         },
@@ -471,7 +492,10 @@ export const usuariosEvaluar = async (req, res, next) => {
         });
       });
     }
-    res.status(200).json({ message: "Solicitud procesada con exito", data: respuesta || [] })
+    res.status(200).json({
+      message: "Solicitud procesada con exito",
+      data: respuesta || [],
+    });
   } catch (error) {
     next(error);
   }
@@ -512,16 +536,16 @@ export const obtenerListaUsuarios = async (req, res, next) => {
     const query = `SELECT u.idUsuario, u.nombre, e2.idEmpresa, e2.nombre as empresa
     FROM usuarios u
     LEFT JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal = true
-    LEFT JOIN Empresas e2 ON e2.idEmpresa = ue2.idEmpresa;`
+    LEFT JOIN Empresas e2 ON e2.idEmpresa = ue2.idEmpresa;`;
 
     const resultados = await Sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
     });
-    res.status(200).json({message: 'OK', resultados})
+    res.status(200).json({ message: "OK", resultados });
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 export const buscarUsuarios = async (req, res, next) => {
   try {
@@ -530,18 +554,20 @@ export const buscarUsuarios = async (req, res, next) => {
     if (documento) {
       const usuarios = await Usuarios.findAll({
         where: { idUsuario: documento },
-        attributes: ['idUsuario', 'nombre', 'correo'],
+        attributes: ["idUsuario", "nombre", "correo"],
         include: [
           {
             model: Empresas,
             attributes: ["nombre"],
             through: { attributes: [], where: { principal: true } },
-          }
-        ]
+          },
+        ],
       });
 
       if (usuarios.length > 0) {
-        return res.status(200).json({ message: "Usuario encontrado", usuarios });
+        return res
+          .status(200)
+          .json({ message: "Usuario encontrado", usuarios });
       }
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
@@ -550,28 +576,29 @@ export const buscarUsuarios = async (req, res, next) => {
       const usuarios = await Usuarios.findAll({
         where: {
           nombre: {
-            [Op.like]: `%${nombre}%`
-          }
+            [Op.like]: `%${nombre}%`,
+          },
         },
-        attributes: ['idUsuario', 'nombre', 'correo'],
+        attributes: ["idUsuario", "nombre", "correo"],
         include: [
           {
             model: Empresas,
             attributes: ["nombre"],
             through: { attributes: [], where: { principal: true } },
-          }
-        ]
+          },
+        ],
       });
 
       if (usuarios.length > 0) {
-        return res.status(200).json({ message: "Usuario encontrado", usuarios });
+        return res
+          .status(200)
+          .json({ message: "Usuario encontrado", usuarios });
       }
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     // Si no se envió ni documento ni nombre
     return res.status(400).json({ message: "Debe enviar documento o nombre" });
-
   } catch (error) {
     next(error);
   }

@@ -3,14 +3,8 @@ import {
   Descriptores,
   TipoCompetencia,
 } from "../models/competencias.model.js";
-import {
-  Compromisos,
-  Evaluaciones,
-  EvaluacionesRealizadas,
-  TipoEvaluaciones,
-} from "../models/evaluaciones.model.js";
 import { Calificaciones, Respuestas } from "../models/respuestas.model.js";
-import { Usuarios, UsuariosEvaluaciones, UsuariosEvaluadores } from "../models/usuarios.model.js";
+import { UsuariosEvaluaciones, UsuariosEvaluadores } from "../models/usuarios.model.js";
 import { literal, Op } from "sequelize";
 import Sequelize from "../config/db.js";
 import { downloadPdfs, generateDynamicPdfs } from "../utils/generatepdf.js";
@@ -18,9 +12,120 @@ import jwt from "jsonwebtoken";
 import dontenv from "dotenv";
 dontenv.config();
 
+// controllers/respuestas.controller.js
 export const crearRespuesta = async (req, res, next) => {
   try {
+    const { respuestas } = req.body ?? {};
+
+    if (!Array.isArray(respuestas) || respuestas.length === 0) {
+      return res.status(400).json({ message: "Falta información para procesar" });
+    }
+
+    // Validación mínima por elemento
+    for (const [i, r] of respuestas.entries()) {
+      const missing = [];
+      if (r?.idDescriptor == null) missing.push("idDescriptor");
+      if (r?.idColaborador == null) missing.push("idColaborador");
+      if (r?.idEvaluador == null) missing.push("idEvaluador");
+      if (r?.idEvaluacion == null) missing.push("idEvaluacion");
+      if (r?.idCalificacion == null) missing.push("idCalificacion");
+      if (missing.length) {
+        return res.status(400).json({
+          message: `Fila ${i}: faltan campos requeridos`,
+          missing
+        });
+      }
+    }
+
+    // A partir del primer elemento deducimos la "trilogía" de unicidad
+    const { idColaborador, idEvaluador, idEvaluacion } = respuestas[0];
+
+    // Verificamos consistencia (todas las respuestas deben pertenecer a la misma trilogía)
+    const inconsistent = respuestas.find(r =>
+      r.idColaborador !== idColaborador ||
+      r.idEvaluador !== idEvaluador ||
+      r.idEvaluacion !== idEvaluacion
+    );
+    if (inconsistent) {
+      return res.status(400).json({
+        message: "Todas las respuestas deben pertenecer al mismo colaborador, evaluador y evaluación"
+      });
+    }
+
+    // Iniciamos una transacción
+    const transaction = await Sequelize.transaction();
+
+    try {
+      // Comprobamos existencia previa (cualquier respuesta ya creada para la trilogía)
+      const existe = await Respuestas.findOne({
+        where: { idColaborador, idEvaluador, idEvaluacion },
+        transaction,
+        lock: transaction.LOCK.UPDATE // opcional: mitigación extra en PG
+      });
+
+      if (existe) {
+        await transaction.rollback();
+        return res.status(409).json({ message: "Esta evaluación ya fue resuelta" });
+      }
+
+      // Creamos en lote (más eficiente)
+      await Respuestas.bulkCreate(respuestas, {
+        transaction,
+      });
+
+      // Actualizaciones relacionadas
+      const tipo = idEvaluador === idColaborador ? 1 : 2;
+
+      await UsuariosEvaluaciones.update(
+        { attempt: 1 },
+        {
+          where: {
+            idEvaluacion,
+            idUsuario: idColaborador,
+            idTipoEvaluacion: tipo
+          },
+          transaction
+        }
+      );
+
+      await UsuariosEvaluadores.update(
+        { completado: true },
+        {
+          where: {
+            idEvaluador,
+            idEvaluacion,
+            idUsuario: idColaborador
+          },
+          transaction
+        }
+      );
+
+      await transaction.commit();
+
+      return res.status(201).json({ message: "Respuestas registradas" });
+    } catch (err) {
+      // Si la BD tiene constraint único, podríamos caer aquí por colisión
+      if (transaction) {
+        try { await transaction.rollback(); } catch {}
+      }
+
+      if (err?.name === 'SequelizeUniqueConstraintError') {
+        return res.status(409).json({ message: "Esta evaluación ya fue resuelta" });
+      }
+      return next(err);
+    }
+  } catch (error) {
+    return next(error);
+  } finally {
+    // logging opcional
+    // console.log(`[crearRespuesta] ${Date.now() - t0}ms`);
+  }
+};
+
+export const crearRespuesta_Old = async (req, res, next) => {
+  try {
     const { respuestas } = req.body;
+    const transaction = Sequelize.transaction()
 
     if (respuestas.length > 1) {
       // Usamos Promise.all para manejar todas las respuestas de manera asíncrona
