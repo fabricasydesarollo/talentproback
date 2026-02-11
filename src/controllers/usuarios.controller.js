@@ -536,7 +536,8 @@ export const obtenerListaUsuarios = async (req, res, next) => {
     const query = `SELECT u.idUsuario, u.nombre, e2.idEmpresa, e2.nombre as empresa
     FROM usuarios u
     LEFT JOIN UsuariosEmpresas ue2 ON ue2.idUsuario = u.idUsuario AND ue2.principal = true
-    LEFT JOIN Empresas e2 ON e2.idEmpresa = ue2.idEmpresa;`;
+    LEFT JOIN Empresas e2 ON e2.idEmpresa = ue2.idEmpresa
+    WHERE u.activo IS TRUE;`;
 
     const resultados = await Sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT, // Indica que estamos obteniendo resultados.
