@@ -3,14 +3,8 @@ import {
   Descriptores,
   TipoCompetencia,
 } from "../models/competencias.model.js";
-import {
-  Compromisos,
-  Evaluaciones,
-  EvaluacionesRealizadas,
-  TipoEvaluaciones,
-} from "../models/evaluaciones.model.js";
 import { Calificaciones, Respuestas } from "../models/respuestas.model.js";
-import { Usuarios, UsuariosEvaluaciones, UsuariosEvaluadores } from "../models/usuarios.model.js";
+import { UsuariosEvaluaciones, UsuariosEvaluadores } from "../models/usuarios.model.js";
 import { literal, Op } from "sequelize";
 import Sequelize from "../config/db.js";
 import { downloadPdfs, generateDynamicPdfs } from "../utils/generatepdf.js";
@@ -18,56 +12,182 @@ import jwt from "jsonwebtoken";
 import dontenv from "dotenv";
 dontenv.config();
 
+// controllers/respuestas.controller.js
 export const crearRespuesta = async (req, res, next) => {
   try {
-    const { respuestas } = req.body;
+    const { respuestas } = req.body ?? {};
 
-    if (respuestas.length > 1) {
-      // Usamos Promise.all para manejar todas las respuestas de manera asíncrona
-      await Promise.all(
-        respuestas.map(async (respuesta) => {
-          const {
+    if (!Array.isArray(respuestas) || respuestas.length === 0) {
+      return res.status(400).json({ message: "Falta información para procesar" });
+    }
+
+    // Validación mínima por elemento
+    for (const [i, r] of respuestas.entries()) {
+      const missing = [];
+      if (r?.idDescriptor == null) missing.push("idDescriptor");
+      if (r?.idColaborador == null) missing.push("idColaborador");
+      if (r?.idEvaluador == null) missing.push("idEvaluador");
+      if (r?.idEvaluacion == null) missing.push("idEvaluacion");
+      if (r?.idCalificacion == null) missing.push("idCalificacion");
+      if (missing.length) {
+        return res.status(400).json({
+          message: `Fila ${i}: faltan campos requeridos`,
+          missing
+        });
+      }
+    }
+
+    // A partir del primer elemento deducimos la "trilogía" de unicidad
+    const { idColaborador, idEvaluador, idEvaluacion } = respuestas[0];
+
+    // Verificamos consistencia (todas las respuestas deben pertenecer a la misma trilogía)
+    const inconsistent = respuestas.find(r =>
+      r.idColaborador !== idColaborador ||
+      r.idEvaluador !== idEvaluador ||
+      r.idEvaluacion !== idEvaluacion
+    );
+    if (inconsistent) {
+      return res.status(400).json({
+        message: "Todas las respuestas deben pertenecer al mismo colaborador, evaluador y evaluación"
+      });
+    }
+
+    // Iniciamos una transacción
+    const transaction = await Sequelize.transaction();
+
+    try {
+      // Comprobamos existencia previa (cualquier respuesta ya creada para la trilogía)
+      const existe = await Respuestas.findOne({
+        where: { idColaborador, idEvaluador, idEvaluacion },
+        transaction,
+        lock: transaction.LOCK.UPDATE // opcional: mitigación extra en PG
+      });
+
+      if (existe) {
+        await transaction.rollback();
+        return res.status(409).json({ message: "Esta evaluación ya fue resuelta" });
+      }
+
+      // Creamos en lote (más eficiente)
+      await Respuestas.bulkCreate(respuestas, {
+        transaction,
+      });
+
+      // Actualizaciones relacionadas
+      const tipo = idEvaluador === idColaborador ? 1 : 2;
+
+      await UsuariosEvaluaciones.update(
+        { attempt: 1 },
+        {
+          where: {
+            idEvaluacion,
+            idUsuario: idColaborador,
+            idTipoEvaluacion: tipo
+          },
+          transaction
+        }
+      );
+
+      await UsuariosEvaluadores.update(
+        { completado: true },
+        {
+          where: {
+            idEvaluador,
+            idEvaluacion,
+            idUsuario: idColaborador
+          },
+          transaction
+        }
+      );
+
+      await transaction.commit();
+
+      return res.status(201).json({ message: "Respuestas registradas" });
+    } catch (err) {
+      // Si la BD tiene constraint único, podríamos caer aquí por colisión
+      if (transaction) {
+        try { await transaction.rollback(); } catch {}
+      }
+
+      if (err?.name === 'SequelizeUniqueConstraintError') {
+        return res.status(409).json({ message: "Esta evaluación ya fue resuelta" });
+      }
+      return next(err);
+    }
+  } catch (error) {
+    return next(error);
+  } finally {
+    // logging opcional
+    // console.log(`[crearRespuesta] ${Date.now() - t0}ms`);
+  }
+};
+
+export const crearRespuesta_Old = async (req, res, next) => {
+  try {
+    const { respuestas } = req.body;
+    const transaction = Sequelize.transaction()
+
+    
+    if (!Array.isArray(respuestas) || respuestas.length < 1) {
+      return res.status(400).json({ message: "Falta información para procesar" });
+    }
+
+      
+    const primer_registro = respuestas[0]
+    const { idColaborador, idEvaluador, idEvaluacion } = primer_registro 
+    
+    const existe = await Respuestas.findOne({
+      where: { idColaborador, idEvaluador, idEvaluacion },
+    });
+    
+    if (existe) {
+      return res.status(400).json({ message: "Esta evaluación ya fue resuelta" });
+    }
+
+    // Usamos Promise.all para manejar todas las respuestas de manera asíncrona
+    await Promise.all(
+      respuestas.map(async (respuesta) => {
+        const {
+          idDescriptor,
+          idColaborador,
+          idEvaluador,
+          idEvaluacion,
+          idCalificacion,
+        } = respuesta;
+
+          const result = await Respuestas.create({
             idDescriptor,
             idColaborador,
             idEvaluador,
             idEvaluacion,
             idCalificacion,
-          } = respuesta;
-          const existe = await Respuestas.findOne({
-            where: { idColaborador, idEvaluador, idEvaluacion },
           });
-          if (existe) {
-            return res
-              .status(400)
-              .json({ message: "Esta evaluación ya fue resuelta" });
-          } else {
-            const result = await Respuestas.create({
-              idDescriptor,
-              idColaborador,
-              idEvaluador,
-              idEvaluacion,
-              idCalificacion,
-            });
-            return result;
-          }
-        })
-      );
-      const [updatedRows] = await UsuariosEvaluaciones.update(
-        { attempt: 1 },
-        {
-          where: {
-            idEvaluacion: respuestas[0].idEvaluacion,
-            idUsuario: respuestas[0].idColaborador,
-            idTipoEvaluacion: respuestas[0].idEvaluador ==  respuestas[0].idColaborador ? 1 : 2
-          },
-          logging: true
+          return result;
+      })
+    );
+    const [updatedRows] = await UsuariosEvaluaciones.update(
+      { attempt: 1 },
+      {
+        where: {
+          idEvaluacion: respuestas[0].idEvaluacion,
+          idUsuario: respuestas[0].idColaborador,
+          idTipoEvaluacion: respuestas[0].idEvaluador ==  respuestas[0].idColaborador ? 1 : 2
+        },
+      }
+    );
+    const [updatedRows2] = await UsuariosEvaluadores.update(
+      {completado: true},
+      {
+        where: {
+          idEvaluador: respuestas[0].idEvaluador,
+          idEvaluacion: respuestas[0].idEvaluacion,
+          idUsuario: respuestas[0].idColaborador
         }
-      );
-      // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
-      res.status(200).json({ message: "Ok" });
-    } else {
-      res.status(400).json({ message: "Falta información para procesar" });
-    }
+      }
+    )
+    // Después de que todas las respuestas han sido creadas, enviamos la respuesta al cliente
+    res.status(200).json({ message: "Ok" });
+
   } catch (error) {
     next(error); // Manejar el error correctamente
   }
@@ -98,31 +218,26 @@ export const obtenerRespuestas = async (req, res, next) => {
     const { idEvaluador, idColaborador, idEvaluacion } = req.query;
 
     const evaluador = await Sequelize.query(
-        `SELECT u.idUsuario, u.nombre  FROM EvaluacionesRealizadas er 
-        JOIN usuarios u ON er.idEvaluador = u.idUsuario
-        WHERE er.idColaborador = ? AND er.idEvaluacion = ? 
-        AND er.idTipoEvaluacion = '2';`,
+        `SELECT u.idUsuario, u.nombre  FROM respuestas r
+          JOIN usuarios u ON r.idEvaluador = u.idUsuario
+          WHERE r.idColaborador = ? AND r.idEvaluacion = ?
+          AND r.idColaborador  != r.idEvaluador 
+          GROUP BY u.idUsuario, u.nombre ;`,
       {
         replacements: [idColaborador, idEvaluacion],
         type: Sequelize.QueryTypes.SELECT
       }
     );
 
-    const compromisos = await EvaluacionesRealizadas.findAll({
-      where: {
-        idEvaluacion,
-        idColaborador
-      },
-      include: [
-        {
-          model: Compromisos,
-          include: [{ model: Competencias, attributes: ["nombre"] }],
-          attributes: ["comentario", "estado", "fechaCumplimiento"],
-        },
-        { model: TipoEvaluaciones, attributes: ["nombre"] },
-      ],
-      attributes: ["comentario", "retroalimentacion", "createdAt"],
-    });
+    const comentarios = await Sequelize.query(`
+            SELECT er.idEvalRealizada as id, er.comentario, er.createdAt as fecha, u.nombre AS evaluador
+            FROM EvaluacionesRealizadas er 
+            JOIN usuarios u ON u.idUsuario = er.idEvaluador 
+            WHERE er.idEvaluacion = ? AND er.idColaborador = ? AND er.idTipoEvaluacion = 2;
+    `, {
+      replacements: [idEvaluacion, idColaborador],
+      type: Sequelize.QueryTypes.SELECT
+    })
     const respuesta = await Competencias.findAll({
       include: [
         {
@@ -194,7 +309,7 @@ export const obtenerRespuestas = async (req, res, next) => {
       .status(200)
       .json({
         message: "Ok",
-        compromisos,
+        comentarios,
         evaluacion: calcularPromedio(respuesta),
         evaluador,
         autoevaluacion: calcularPromedio(autoevaluacion),

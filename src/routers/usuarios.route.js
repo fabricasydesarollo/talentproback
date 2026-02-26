@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { actualizarContraseña, actualizarUsuario, asignarColaboradoresEvaluar, asignarUsuariosSedes, crearNivelCargo, crearPerfil, crearUsuario, obtenerColaboradores, obtenerListaUsuarios, obtenerNivelCargos, obtenerPerfiles, obtenerUnicoUsuario, obtenerUsuariosSedes, usuariosEvaluar } from "../controllers/usuarios.controller.js";
+import { actualizarContraseña, actualizarUsuario, asignarColaboradoresEvaluar, asignarUsuariosSedes, buscarUsuarios, crearNivelCargo, crearPerfil, crearUsuario, obtenerColaboradores, obtenerListaUsuarios, obtenerNivelCargos, obtenerPerfiles, obtenerUnicoUsuario, obtenerUsuariosSedes, usuariosEvaluar } from "../controllers/usuarios.controller.js";
 import { schemaUser, validateRequest } from "../middleware/validateSchema.js";
 import { loginUsuario, obtenerAutoevaluaciones } from "../controllers/login.controller.js";
 import { logoutSession, validateToken } from "../utils/token.js";
@@ -9,6 +9,9 @@ const router = Router()
 router.route("/")
     .get(obtenerUnicoUsuario)
     .post(crearUsuario)
+
+router.route("/search")
+    .get(buscarUsuarios)
 
 router.route("/colaboradores")
     .get(obtenerColaboradores)

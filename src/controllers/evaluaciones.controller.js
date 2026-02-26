@@ -190,6 +190,28 @@ export const agregarComentarioGeneral = async (req, res, next) => {
       },
     });
 
+    if (idTipoEvaluacion == 2) {
+      await UsuariosEvaluadores.update(
+        {completado: true},
+        {
+          where: {
+            idEvaluador: idEvaluador,
+            idEvaluacion: idEvaluacion,
+            idUsuario: idColaborador
+          }
+        }
+      )
+    } 
+    await UsuariosEvaluaciones.update(
+      {attempt: true},{
+        where: {
+          idUsuario: idColaborador,
+          idEvaluacion: idEvaluacion,
+          idTipoEvaluacion: idTipoEvaluacion
+        }
+      }
+    )
+
     // Si ya existe un comentario, devolver respuesta adecuada
     if (existeComentario) {
       return res.status(409).json({ message: "Ya existe un comentario" });
@@ -215,14 +237,15 @@ export const agregarComentarioGeneral = async (req, res, next) => {
 
 export const obtenerComentariosPorUsuario = async (req, res, next) => {
   try {
-    const { idColaborador, idEvaluacion } = req.query;
-    if (!idColaborador || !idEvaluacion) {
+    const { idColaborador, idEvaluacion, idEvaluador } = req.query;
+    if (!idColaborador || !idEvaluacion || !idEvaluador) {
       return res.status(400).json({ message: "Faltan parámetros requeridos" });
     }
     const respuesta = await EvaluacionesRealizadas.findOne({
       where: {
         idColaborador,
         idEvaluacion,
+        idEvaluador,
         idTipoEvaluacion: 2
       },
       include: [
@@ -243,7 +266,7 @@ export const obtenerComentariosPorUsuario = async (req, res, next) => {
 
 export const actualizarCompromisosPorUsuario = async (req, res, next) => {
     try {
-      const { idColaborador, idEvaluacion, comentario,  accionesMejoramiento } = req.body;
+      const { idColaborador, idEvaluador,  idEvaluacion, comentario,  accionesMejoramiento } = req.body;
   
       const updateComentario = await EvaluacionesRealizadas.update({
         comentario
@@ -251,6 +274,7 @@ export const actualizarCompromisosPorUsuario = async (req, res, next) => {
         where: {
           idColaborador,
           idEvaluacion,
+          idEvaluador,
           idTipoEvaluacion: 2
         },
       });
@@ -311,36 +335,31 @@ export const evaluacionesDisponibles = async (req, res, next) => {
   try {
     const { idEvaluador, idColaborador, idEvaluacion } = req.query;
 
-    const disponible = await Respuestas.findOne({
-      where: { idEvaluador, idColaborador, idEvaluacion },
-    });
+    if (!idEvaluador || !idEvaluacion){
+      return res.status(400).json({message: 'Falta información para continuar'})
+    }
 
-    const cantidadEvaluados = await EvaluacionesRealizadas.count({
-      where: {
-        idEvaluador,
-      },
-      distinct: true,
-      col:'idColaborador'
-    });
-
-    const query = `SELECT COUNT(ue.idUsuario) AS total 
-      FROM usuariosEvaluadores ue 
-      JOIN usuarios u ON u.idUsuario = ue.idUsuario 
-      WHERE u.activo = 1 AND ue.idEvaluador = :idEvaluador AND ue.deletedAt IS NULL;`
+    const query = `SELECT 
+                    COUNT(*) AS total,
+                    COALESCE(SUM(CASE WHEN ue.completado = 1 THEN 1 ELSE 0 END), 0) AS completados
+                    FROM usuariosEvaluadores ue
+                    JOIN usuarios u ON u.idUsuario = ue.idUsuario 
+                    WHERE ue.deletedAt IS NULL
+                      AND u.activo = 1 AND
+                      ue.idEvaluador = :idEvaluador 
+                      AND ue.idEvaluacion = :idEvaluacion;`
       const replacements = {
-        idEvaluador: idEvaluador || null,
+        idEvaluador: idEvaluador,
+        idEvaluacion: idEvaluacion
       };
 
-    const cantidadEvaluarResult = await Sequelize.query(query, {
+    const disponible = await Sequelize.query(query, {
         replacements,
         type: Sequelize.QueryTypes.SELECT,
       });
-
-    const cantidadEvaluar = cantidadEvaluarResult[0]?.total || 0;
-      
     res
       .status(200)
-      .json({ disponible: !disponible, porcentageEvaluados:  ((cantidadEvaluados * 100 ) / (cantidadEvaluar + 1))});
+      .json({ message: 'Porcentaje de avance', disponible});
   } catch (error) {
     next(error);
   }
@@ -357,7 +376,8 @@ export const eliminarEvaluacion = async (req, res, next) => {
       const eliminado = await Respuestas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
       const eliminadoRealizado = await EvaluacionesRealizadas.destroy({where: {idColaborador, idEvaluador, idEvaluacion}})
       const actualizarEvaluador = await UsuariosEvaluaciones.update({attempt: false}, {where: {idUsuario: idColaborador, idEvaluacion: idEvaluacion, idTipoEvaluacion: idTipoEvaluacion}})
-      res.status(200).json({ message: "Ok", eliminado, eliminadoRealizado, actualizarEvaluador });
+      const actualizarIntento = await UsuariosEvaluadores.update({completado: false}, {where: {idUsuario: idColaborador, idEvaluacion: idEvaluacion, idEvaluador: idEvaluador}})
+      res.status(200).json({ message: "Ok", eliminado, eliminadoRealizado, actualizarEvaluador, actualizarIntento });
     }else {
       res.status(400).json({ message: "No existe información para actualizar" });
     }
