@@ -6,7 +6,6 @@ import { httpError } from "./middleware/httpError.js"
 import dontenv from "dotenv"
 import cors from "cors"
 import cookieParser from "cookie-parser"
-import https from 'https'
 import { readFileSync } from "fs"
 import { initTask } from "./utils/deletedFolter.js"
 import path from 'path'
@@ -44,19 +43,8 @@ db.authenticate()
 db.sync()
     .then(() => console.log('db sycn succes!!'))
     .catch(err => console.log(err))
-const PORT = 3011
+const PORT = process.env.PORT || 3011
 
-https
-  .createServer(
-    {
-      key: readFileSync(
-        "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ide.oncologosdeloccidente.net/ide.oncologosdeloccidente.net.key"
-      ),
-      cert: readFileSync(
-        "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ide.oncologosdeloccidente.net/ide.oncologosdeloccidente.net.crt"
-      ),
-    },
-    app
-  ).listen(PORT, () => {
+app.listen(PORT, () => {
     console.log(`Sever running ${PORT}`)
 })
