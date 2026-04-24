@@ -87,8 +87,7 @@ export const obtenerAutoevaluaciones = async (req, res, next) => {
       ]
     })
 
-          model: Evaluaciones,
-          res.status(200).json({message: 'Autorvaluaciones obtenidas correctamente', evaluaciones})
+    res.status(200).json({message: 'Autorvaluaciones obtenidas correctamente', evaluaciones})
 
 
   } catch (error) {

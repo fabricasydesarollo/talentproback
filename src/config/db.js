@@ -2,9 +2,9 @@ import { Sequelize } from "sequelize";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import dotenv from "dotenv"; 
+import dotenv from "dotenv";
 
-dotenv.config(); 
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,9 +19,10 @@ const db = new Sequelize({
   logging: false,
   dialectOptions: {
     ssl: {
-      ca: readFileSync(join(__dirname, "DigiCertGlobalRootG2.crt.pem"))
+      ca: readFileSync(join(__dirname, "DigiCertGlobalRootG2.crt.pem")),
+      rejectUnauthorized: true,
     }
-  },
+  }
 });
 
 export default db;
