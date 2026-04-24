@@ -19,9 +19,7 @@ const db = new Sequelize({
   logging: false,
   dialectOptions: {
     ssl: {
-      ca: readFileSync(join(__dirname, "server-ca.pem")),
-      cert: readFileSync(join(__dirname, "client-cert.pem")),
-      key: readFileSync(join(__dirname, "client-key.pem")),
+      ca: readFileSync(join(__dirname, "DigiCertGlobalRootG2.crt.pem"))
     }
   },
 });
