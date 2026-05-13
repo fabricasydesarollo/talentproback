@@ -4,6 +4,9 @@ import { Perfiles } from "../models/usuarios.model.js";
 export const obtenerMenusPorUsuario = async (req, res, next) => {
   try {
     const { idPerfil } = req.query;
+    if (!idPerfil) {
+      return res.status(400).json({ message: 'Falta información en la solicitud.', status: false })
+    }
     const response = await ADMMenus.findAll({
       include: [
         {
@@ -17,7 +20,7 @@ export const obtenerMenusPorUsuario = async (req, res, next) => {
               required: true
             },
           ],
-          attributes: ['idRuta','nomnbre', 'ruta'],
+          attributes: ['idRuta', 'nomnbre', 'ruta'],
           required: true
         },
       ],

@@ -21,7 +21,6 @@ export const generateToken = async (usuario) => {
 };
 
 export const validateToken = (req, res, next) => {
-
   let token;
   if (req.cookies?.token){
     token = req.cookies.token;
@@ -33,13 +32,13 @@ export const validateToken = (req, res, next) => {
     }
   }
   if (!token) {
-    return res.status(403).json({ message: "Acceso denegado" });
+    return res.status(403).json({ message: "Acceso denegado", status: false });
   }
   try {
     const data = jwt.verify(token, process.env.SECRETWORD);
     res.status(200).json({ message: "Sesión valida", data });
   } catch (error) {
-    res.status(403).json({ message: "Token inválido o expirado" });
+    res.status(403).json({ message: "Token inválido o expirado", status: false });
   }
 };
 
