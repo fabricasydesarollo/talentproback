@@ -12,7 +12,6 @@ export const generateDynamicPdfs = async (dataArray, idUsuario) => {
     try {
         // Iniciar Puppeteer
         const browser = await puppeteer.launch({
-            executablePath: '/usr/bin/chromium-browser',
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
           });
