@@ -7,12 +7,13 @@ import routerCompetencias from "./competencias.route.js"
 import routerRespuestas from "./respuestas.route.js"
 import routerInformes from "./informes.route.js"
 import routerAdmin from "./administrar.route.js"
-import { schemaGen, validateRequest } from "../middleware/validateSchema.js";
+import routerPublic from "./public.route.js";
 import { guardToken } from "../middleware/guardToken.js";
 const router = Router()
 
 router.use("/ciudades",guardToken, routerCiudades)
 router.use("/empresas", routerEmpresas)
+router.use("/login", routerPublic)
 router.use("/usuarios", guardToken, routerUsuarios)
 router.use("/evaluaciones", guardToken, routerEvaluaciones)
 router.use("/competencias", routerCompetencias)
