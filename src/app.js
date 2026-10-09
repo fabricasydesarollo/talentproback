@@ -6,8 +6,6 @@ import { httpError } from "./middleware/httpError.js"
 import dontenv from "dotenv"
 import cors from "cors"
 import cookieParser from "cookie-parser"
-import https from 'https'
-import { readFileSync } from "fs"
 import { initTask } from "./utils/deletedFolter.js"
 import path from 'path'
 
@@ -18,7 +16,6 @@ const app = express()
 app.use(express.json())
 app.use(cookieParser())
 initTask() // ⏳ Ejecutar cron jobs al iniciar el servidor
-
 
 app.use(cors({
   origin: ["https://talentprozentria.netlify.app", "http://localhost:5173", "https://talentprozentriaqa.netlify.app"],
@@ -44,19 +41,8 @@ db.authenticate()
 db.sync()
     .then(() => console.log('db sycn succes!!'))
     .catch(err => console.log(err))
-const PORT = 3010
+const PORT = process.env.PORT || 3000
 
-https
-  .createServer(
-    {
-      key: readFileSync(
-        "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ide.oncologosdeloccidente.net/ide.oncologosdeloccidente.net.key"
-      ),
-      cert: readFileSync(
-        "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/ide.oncologosdeloccidente.net/ide.oncologosdeloccidente.net.crt"
-      ),
-    },
-    app
-  ).listen(PORT, () => {
-    console.log(`Sever running ${PORT}`)
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
 })

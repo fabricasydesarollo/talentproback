@@ -2,8 +2,6 @@ import { Competencias, Descriptores } from "../models/competencias.model.js";
 import { Empresas, Sedes } from "../models/empresas.model.js";
 import {
   Evaluaciones,
-  EvaluacionesRealizadas,
-  TipoEvaluaciones,
 } from "../models/evaluaciones.model.js";
 import { Respuestas } from "../models/respuestas.model.js";
 import {
@@ -16,7 +14,9 @@ import {
 } from "../models/usuarios.model.js";
 import { hashPassword } from "../utils/hashPassword.js";
 import Sequelize from "../config/db.js";
-import { Op, where } from "sequelize";
+import { Op } from "sequelize";
+import usersServices from "../services/users.services.js";
+import auditoriaServices from "../services/auditoria.services.js";
 
 export const obtenerUnicoUsuario = async (req, res, next) => {
   try {
@@ -132,70 +132,25 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
     // 1. Extraer idEvaluador, idUsuario, idEvaluación
 
     const { usuarios } = req.body ?? {};
+    const respuesta = await usersServices.addColaboradores(usuarios);
 
-    if (!Array.isArray(usuarios) || usuarios.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "El cuerpo de la solicitud debe contener usuarios." });
-    }
-    const { idEvaluador, idEvaluacion, idUsuario } = usuarios[0];
-    const transaction = await Sequelize.transaction();
-    // 2. Extraer los ids de usuarios
-    const ids_usuarios = usuarios.map((u) => u.idUsuario);
-
-    // 3. Si idusuario viene null entonces debe hacer un sof/delete de ese evaluador y esa evaluación (deletedAt: now Date())
-    if (!idUsuario) {
-      const [rowsAffected] = await UsuariosEvaluadores.update(
-        { deletedAt: new Date() },
-        { where: { idEvaluador, idEvaluacion } },
-        transaction
-      );
-      return res
-        .status(200)
-        .json({ message: "Operación exitosa", rowsAffected });
-    }
-    // 4. Validar si el usuario existe y no esta eliminado
-    // 5. Si existe y no esta eliminado (omitir)
-    // 6. Si no existe se debe crear
-    for (const user_d of usuarios) {
-      const { idEvaluador, idEvaluacion, idUsuario } = user_d; // El punto 4, 5 y 6 lo logramos con el findOrCreate
-      const [user] = await UsuariosEvaluadores.findOrCreate({
-        where: { idEvaluador, idEvaluacion, idUsuario },
-        defaults: user_d,
-        transaction
+    try {
+      await auditoriaServices.logAction({
+        accion: "UPDATE",
+        tabla: "usuariosEvaluadores",
+        idRegistro: usuarios[0].idEvaluador,
+        fechaAccion: new Date(),
+        usuarioAccion: req.user?.idUsuario,
+        observacion: "Actualización de usuario",
+        valorAnterior: respuesta.usersAudit,
+        valorNuevo: respuesta.usersCreate
       });
-
-      // 7. si existe y esta eliminado se debe restaurar (deletedAt : null)
-      if (user.deletedAt) {
-        await UsuariosEvaluadores.update(
-          {
-            deletedAt: null,
-          },
-          { where: { idEvaluador, idEvaluacion, idUsuario } },
-          transaction
-        );
-      }
+    } catch (auditError) {
+      console.error("Error registrando auditoría:", auditError);
     }
-    
-    // 8. Hacer un soft/delete con con los ids de usuarios en update({deletedAt: now Date()}, {where: NOT IN (ids_usuarios) AND idEvaluacion})
-    await UsuariosEvaluadores.update(
-      {
-        deletedAt: new Date()
-      },
-      {
-        where: {
-          idUsuario: {
-            [Op.notIn]: ids_usuarios
-          },
-          idEvaluacion,
-          idEvaluador
-        }
-      }, transaction
-    );
 
-    transaction.commit()
 
-    res.status(200).json({message: 'Usuarios procesados correctamente'});
+    res.status(respuesta.message || 200).json(respuesta.message);
   } catch (error) {
     next(error);
   }
@@ -204,51 +159,26 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
 export const actualizarUsuario = async (req, res, next) => {
   try {
     const { idUsuario } = req.params;
-    const {
-      nombre,
-      cargo,
-      correo,
-      contrasena,
-      idPerfil,
-      idNivelCargo,
-      fechaIngreso,
-      area,
-      activo,
-      defaultContrasena,
-    } = req.body;
+    const payload = req.body;
+    const respuesta = await usersServices.update(idUsuario, payload);
 
-    if (!nombre || !cargo || !correo || !idPerfil || !idNivelCargo || !area) {
-      return res.status(400).json({ message: "Faltan campos obligatorios" });
+    if (respuesta.userNew[0] === 0) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    let password;
-    if (contrasena !== undefined) {
-      password = await hashPassword(contrasena);
-    }
-
-    const camposActualizados = {
-      nombre,
-      cargo,
-      correo,
-      idPerfil,
-      idNivelCargo,
-      fechaIngreso,
-      activo,
-      area,
-      defaultContrasena,
-    };
-    if (password) {
-      camposActualizados.contrasena = password;
-    }
-
-    const respuesta = await Usuarios.update(camposActualizados, {
-      where: { idUsuario },
-    });
-
-    if (respuesta[0] === 0) {
-      return res
-        .status(404)
-        .json({ message: "Usuario no encontrado o sin cambios" });
+    try {
+      await auditoriaServices.logAction({
+        accion: "UPDATE",
+        tabla: "usuarios",
+        idRegistro: respuesta.userNew.idUsuario || idUsuario,
+        fechaAccion: new Date(),
+        usuarioAccion: req.user?.idUsuario,
+        observacion: "Actualización de usuario",
+        valorAnterior: respuesta.userOld,
+        valorNuevo: respuesta.userNew
+      });
+    } catch (auditError) {
+      console.error("Error registrando auditoría:", auditError);
     }
 
     res.status(200).json({ message: "Usuario actualizado exitosamente" });
@@ -259,46 +189,37 @@ export const actualizarUsuario = async (req, res, next) => {
 
 export const crearUsuario = async (req, res, next) => {
   try {
-    const {
-      idUsuario,
-      nombre,
-      cargo,
-      correo,
-      area,
-      contrasena,
-      idPerfil,
-      fechaIngreso,
-      idNivelCargo,
-    } = req.body;
+    const payload = req.body;
 
-    if (
-      !idUsuario ||
-      !nombre ||
-      !cargo ||
-      !contrasena ||
-      !idPerfil ||
-      !idNivelCargo ||
-      !area ||
-      !fechaIngreso
-    ) {
-      res.status(400).json({ message: "Faltan datos necesarios" });
+    const respuesta = await usersServices.create(payload);
+
+    try {
+      await auditoriaServices.logAction({
+        accion: "CREATE",
+        tabla: "usuarios",
+        idRegistro: respuesta.idUsuario,
+        usuarioAccion: req.user?.idUsuario || respuesta.idUsuario,
+        observacion: "Creación de usuario",
+
+        valorAnterior: null,
+
+        valorNuevo: {
+          idUsuario: respuesta.idUsuario,
+          nombre: respuesta.nombre,
+          correo: respuesta.correo,
+          estado: respuesta.estado,
+          cargo: respuesta.cargo
+        }
+      });
+    } catch (auditError) {
+      console.error("Error registrando auditoría:", auditError);
     }
 
-    const password = await hashPassword(contrasena);
-    const respuesta = await Usuarios.create({
-      idUsuario,
-      nombre,
-      cargo,
-      correo,
-      contrasena: password,
-      idPerfil,
-      idNivelCargo,
-      area,
-      fechaIngreso,
-      defaultContrasena: true,
-      activo: true,
+    res.status(201).json({
+      success: true,
+      data: respuesta
     });
-    res.status(201).json({ message: "Ok", data: respuesta });
+
   } catch (error) {
     next(error);
   }

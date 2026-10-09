@@ -8,12 +8,13 @@ import routerRespuestas from "./respuestas.route.js"
 import routerInformes from "./informes.route.js"
 import routerAdmin from "./administrar.route.js"
 import { schemaGen, validateRequest } from "../middleware/validateSchema.js";
+import { guardToken } from "../middleware/guardToken.js";
 const router = Router()
 
-router.use("/ciudades", routerCiudades)
+router.use("/ciudades",guardToken, routerCiudades)
 router.use("/empresas", routerEmpresas)
-router.use("/usuarios", routerUsuarios)
-router.use("/evaluaciones", routerEvaluaciones)
+router.use("/usuarios", guardToken, routerUsuarios)
+router.use("/evaluaciones", guardToken, routerEvaluaciones)
 router.use("/competencias", routerCompetencias)
 router.use("/respuestas", routerRespuestas)
 router.use("/informes", routerInformes)

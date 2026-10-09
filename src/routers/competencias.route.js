@@ -1,13 +1,14 @@
 import { Router } from "express";
 import {
-  asignarCompetenciaEvaluacion,
   asignarCompetenciasCargo,
   asignarDescriptoresNivelCargo,
+  assignEvaluationCompetencies,
   crearCompetencia,
   crearDescriptor,
   crearTipoCompetencia,
   obtenerCompetencia,
   obtenerDescriptor,
+  obtenerDescriptores,
   obtenerTipoCompetencia,
 } from "../controllers/competencias.controller.js";
 
@@ -15,11 +16,12 @@ const router = Router();
 
 router.route("/").get(obtenerCompetencia).post(crearCompetencia);
 
-router.route("/descriptores").get(obtenerDescriptor).post(crearDescriptor);
+router.route("/descriptores").get(obtenerDescriptores).post(crearDescriptor);
+router.route("/descriptores/:idCompetencia").get(obtenerDescriptor)
 
 router.route("/tipo").get(obtenerTipoCompetencia).post(crearTipoCompetencia);
 
-router.route("/asignarCompEval").post(asignarCompetenciaEvaluacion);
+router.route("/assignEvaluation").post(assignEvaluationCompetencies);
 
 router.route("/asignarCompCargo").post(asignarCompetenciasCargo);
 router.route("/asignarDescCargo").post(asignarDescriptoresNivelCargo);

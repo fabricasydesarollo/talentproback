@@ -19,11 +19,11 @@ export const Evaluaciones = db.define("Evaluaciones", {
         defaultValue: new Date().getFullYear()
     },
     fechaInicio: {
-        type: DataTypes.DATE,
+        type: DataTypes.DATEONLY,
         allowNull: true
     },
     fechaFin: {
-        type: DataTypes.DATE,
+        type: DataTypes.DATEONLY,
         allowNull: true
     },
     activa: {
@@ -31,6 +31,10 @@ export const Evaluaciones = db.define("Evaluaciones", {
         allowNull: true,
         defaultValue: true
     },
+    objetivo: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    }
 })
 
 export const TipoEvaluaciones = db.define("TipoEvaluaciones", {

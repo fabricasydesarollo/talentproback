@@ -12,12 +12,17 @@ import {
 import { Respuestas } from "../models/respuestas.model.js";
 import { NivelCargo, UsuariosEvaluaciones, UsuariosEvaluadores } from "../models/usuarios.model.js";
 import Sequelize from "../config/db.js";
-import { Op, where } from "sequelize";
+import { Op } from "sequelize";
+import evaluationsService from "../services/evaluaciones.services.js";
+import commentsServices from "../services/comments.services.js";
+import usersevaluationsServices from "../services/usersevaluations.services.js";
+import userevaluatorRepository from "../repository/userevaluator.repository.js";
+import auditoriaServices from "../services/auditoria.services.js";
 
 export const crearEvaluacion = async (req, res, next) => {
   try {
-    const { nombre, año, estado } = req.body;
-    const respuesta = await Evaluaciones.create({ nombre, año, estado });
+    const payload = req.body;
+    const respuesta = await evaluationsService.createEvaluation(payload);
     res.status(200).json({ message: "Ok", data: respuesta });
   } catch (error) {
     next(error);
@@ -25,13 +30,7 @@ export const crearEvaluacion = async (req, res, next) => {
 };
 export const obtenerEvaluacionesActivas = async (req, res, next) => {
   try {
-    const respuesta = await Evaluaciones.findAll({
-      include: [{
-        model: Competencias, through: { attributes: [] }, attributes: { exclude: ['createdAt', 'updatedAt'] },
-        include: [{ model: Empresas, through: { attributes: [] }, attributes: { exclude: ['createdAt', 'updatedAt', 'urlLogo', 'nit', 'idHub'] } }, { model: TipoCompetencia, attributes: { exclude: ['createdAt', 'updatedAt'] } }]
-      }],
-      attributes: { exclude: ['createdAt', 'updatedAt'] },
-    })
+    const respuesta = await evaluationsService.getEvaluations();
     res.status(200).json({ message: "Ok", data: respuesta });
   } catch (error) {
     next(error);
@@ -176,62 +175,26 @@ export const obtenerTipoEvaluacion = async (req, res, next) => {
 
 export const agregarComentarioGeneral = async (req, res, next) => {
   try {
-    const { idColaborador, idEvaluador, idEvaluacion, comentario, promedio, retroalimentacion } = req.body;
 
-    let idTipoEvaluacion = 2;
-    if (idColaborador == idEvaluador) {
-      idTipoEvaluacion = 1;
+    const payload = req.body;
+
+    const existComment = await commentsServices.getCommitmentsByEvaluation(payload);
+    if (existComment) {
+      return res.status(409).json({ message: "Hay un comentario existente para esta evaluación" });
     }
 
-    // Verificar si ya existe un comentario para la evaluación
-    const existeComentario = await EvaluacionesRealizadas.findOne({
-      where: {
-        idColaborador,
-        idEvaluador,
-        idEvaluacion,
-      },
-    });
+    const resultComment = await commentsServices.create(payload);
 
-    if (idTipoEvaluacion == 2) {
-      await UsuariosEvaluadores.update(
-        { completado: true },
-        {
-          where: {
-            idEvaluador: idEvaluador,
-            idEvaluacion: idEvaluacion,
-            idUsuario: idColaborador
-          }
-        }
-      )
+    if (!resultComment) {
+      return res.status(500).json({ message: "Error al crear el comentario" });
     }
-    await UsuariosEvaluaciones.update(
-      { attempt: true }, {
-      where: {
-        idUsuario: idColaborador,
-        idEvaluacion: idEvaluacion,
-        idTipoEvaluacion: idTipoEvaluacion
-      }
+    if (payload.idColaborador !== payload.idEvaluador) {
+      await userevaluatorRepository.updateAttempt(payload);
     }
-    )
-
-    // Si ya existe un comentario, devolver respuesta adecuada
-    if (existeComentario) {
-      return res.status(409).json({ message: "Ya existe un comentario" });
-    }
-
-    // Crear un nuevo comentario
-    const respuesta = await EvaluacionesRealizadas.create({
-      idColaborador,
-      idEvaluador,
-      idEvaluacion,
-      idTipoEvaluacion,
-      comentario,
-      retroalimentacion,
-      promedio
-    });
+    await usersevaluationsServices.updateAttempt(payload);
 
     // Respuesta exitosa
-    res.status(200).json({ message: "Ok", data: respuesta });
+    res.status(200).json({ message: "Comentario creado exitosamente" });
   } catch (error) {
     next(error);
   }
@@ -239,28 +202,9 @@ export const agregarComentarioGeneral = async (req, res, next) => {
 
 export const obtenerComentariosPorUsuario = async (req, res, next) => {
   try {
-    const { idColaborador, idEvaluacion, idEvaluador } = req.query;
-    if (!idColaborador || !idEvaluacion || !idEvaluador) {
-      return res.status(400).json({ message: "Faltan parámetros requeridos" });
-    }
-    const respuesta = await EvaluacionesRealizadas.findOne({
-      where: {
-        idColaborador,
-        idEvaluacion,
-        idEvaluador,
-        idTipoEvaluacion: 2
-      },
-      include: [
-        {
-          model: Compromisos,
-          required: false, // Esto hace que la consulta no falle si no hay compromisos
-          include: [{ model: Competencias, attributes: { exclude: ["updatedAt", "createdAt", "idTipo"] } }],
-          attributes: { exclude: ["idEvalRealizada", "idCompetencia", "updatedAt", "createdAt"] }
-        },
-      ],
-      attributes: ["idEvalRealizada", "comentario", "retroalimentacion"]
-    });
-    res.status(200).json({ message: "Ok", data: respuesta || [] });
+    const payload = req.query;
+    const response = await commentsServices.getByUserId(payload);
+    res.status(200).json({ message: "Ok", data: response || [] });
   } catch (error) {
     next(error);
   }
@@ -379,6 +323,22 @@ export const eliminarEvaluacion = async (req, res, next) => {
       const eliminadoRealizado = await EvaluacionesRealizadas.destroy({ where: { idColaborador, idEvaluador, idEvaluacion } })
       const actualizarEvaluador = await UsuariosEvaluaciones.update({ attempt: false }, { where: { idUsuario: idColaborador, idEvaluacion: idEvaluacion, idTipoEvaluacion: idTipoEvaluacion } })
       const actualizarIntento = await UsuariosEvaluadores.update({ completado: false }, { where: { idUsuario: idColaborador, idEvaluacion: idEvaluacion, idEvaluador: idEvaluador } })
+
+      try {
+        await auditoriaServices.logAction({
+          accion: "DELETED",
+          tabla: "Respuestas, EvaluacionesRealizadas, UsuariosEvaluaciones, UsuariosEvaluadores",
+          idRegistro: req.user?.idUsuario,
+          fechaAccion: new Date(),
+          usuarioAccion: req.user?.idUsuario,
+          observacion: "Eliminar evaluación",
+          valorAnterior: Respuestas,
+          valorNuevo: []
+        });
+      } catch (auditError) {
+        console.error("Error registrando auditoría:", auditError);
+      }
+
       res.status(200).json({ message: "Ok", eliminado, eliminadoRealizado, actualizarEvaluador, actualizarIntento });
     } else {
       res.status(400).json({ message: "No existe información para actualizar" });
@@ -502,17 +462,11 @@ export const obtenerEvaluacionesAsignadas = async (req, res, next) => {
 
 export const updateEvaluacion = async (req, res, next) => {
   try {
-    const informacion = req.body
+    const payload = req.body
 
-    if (!informacion.hasOwnProperty('idEvaluacion')) {
-      return res.status(400).json({ message: "Información incompleta", status: false })
-    }
-    const evaluacion = await Evaluaciones.findByPk(informacion.idEvaluacion)
-    if (evaluacion) {
-      await Evaluaciones.update(informacion, { where: { idEvaluacion: informacion.idEvaluacion } })
-      return res.status(200).json({ message: "Información actualizada correctamente", status: true })
-    }
-    res.status(401).json({ message: "Los datos suministrados son invalidos.", status: false })
+    const respuesta = await evaluationsService.updateEvaluation(payload)
+    res.status(200).json({ message: "Ok", data: respuesta });
+
   } catch (error) {
     next(error)
   }

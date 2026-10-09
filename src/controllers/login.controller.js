@@ -49,7 +49,7 @@ export const loginUsuario = async (req, res, next) => {
           path: "/",
           sameSite: "None",
           secure: true,
-          httpOnly: false,
+          httpOnly: true,
         });
         usuarioSedes.dataValues.defaultContrasena = defaultContrasena;
         return res

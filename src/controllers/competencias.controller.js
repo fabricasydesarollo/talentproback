@@ -6,7 +6,7 @@ import {
 } from "../models/competencias.model.js";
 import { Empresas } from "../models/empresas.model.js";
 import { DescriptoresNivelesCargo } from "../models/evaluaciones.model.js";
-import { NivelCargo } from "../models/usuarios.model.js";
+import evaluationService from "../services/competencias.services.js";
 
 export const crearDescriptor = async (req, res, next) => {
   try {
@@ -18,10 +18,25 @@ export const crearDescriptor = async (req, res, next) => {
   }
 };
 
-export const obtenerDescriptor = async (req, res, next) => {
+export const obtenerDescriptores = async (req, res, next) => {
   try {
     const respuesta = await Descriptores.findAll();
-    res.status(200).json({ message: "Ok", data: respuesta });
+    res.status(200).json({ message: "Ok", descriptores: respuesta });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const obtenerDescriptor = async (req, res, next) => {
+  try {
+    const { idCompetencia } = req.params;
+    if (!idCompetencia) {
+      return res.status(400).json({ message: "Falta el idCompetencia" });
+    }
+    const respuesta = await Descriptores.findAll({
+      where: { idCompetencia },
+    });
+    res.status(200).json({ message: "Ok", descriptores: respuesta });
   } catch (error) {
     next(error);
   }
@@ -46,18 +61,19 @@ export const obtenerTipoCompetencia = async (req, res, next) => {
   }
 };
 
-export const asignarCompetenciaEvaluacion = async (req, res, next) => {
+export const assignEvaluationCompetencies = async (req, res, next) => {
   try {
-    const { idEvaluacion, idCompetencia } = req.body;
-    const respuesta = await CompetenciasEvaluaciones.create({
-      idEvaluacion,
-      idCompetencia,
-    });
-    res.status(200).json({ message: "Ok", data: respuesta });
+    const payload = req.body;
+    if (!payload.idEvaluacion || !Array.isArray(payload.competencias)) {
+      return res.status(400).json({ message: "'idEvaluacion' and 'competencias' are required." });
+    }
+    const result = await evaluationService.assignCompetencies(payload)
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
 };
+
 export const crearCompetencia = async (req, res, next) => {
   try {
     const { nombre, descripcion, idTipoCompetencia, idEmpresa } = req.body;
@@ -116,30 +132,30 @@ export const asignarCompetenciasCargo = async (req, res, next) => {
 
 
 export const asignarDescriptoresNivelCargo = async (req, res, next) => {
-    try {
-      const { idNivelCargo, descriptores } = req.body;
-      // const respuesta = await CompetenciaCargo.create({idNivelCargo, idCompetencia})
-      const resultados = await Promise.all(
-        descriptores.map(async (idDescriptor) => {
-          if (idNivelCargo && descriptores) {
-            try {
-              await DescriptoresNivelesCargo.destroy({ where: { idNivelCargo } });
-              await DescriptoresNivelesCargo.create({
-                idNivelCargo,
-                idDescriptor,
-              });
-            } catch (error) {
-              return {
-                error: `Error al asignar las descriptores al nivel de cargo}`,
-              };
-            }
-          } else {
-            return { error: "Datos requeridos para la operación" };
+  try {
+    const { idNivelCargo, descriptores } = req.body;
+    // const respuesta = await CompetenciaCargo.create({idNivelCargo, idCompetencia})
+    const resultados = await Promise.all(
+      descriptores.map(async (idDescriptor) => {
+        if (idNivelCargo && descriptores) {
+          try {
+            await DescriptoresNivelesCargo.destroy({ where: { idNivelCargo } });
+            await DescriptoresNivelesCargo.create({
+              idNivelCargo,
+              idDescriptor,
+            });
+          } catch (error) {
+            return {
+              error: `Error al asignar las descriptores al nivel de cargo}`,
+            };
           }
-        })
-      );
-      res.status(201).json({ message: "Ok", resultados });
-    } catch (error) {
-      next(error);
-    }
-  };
+        } else {
+          return { error: "Datos requeridos para la operación" };
+        }
+      })
+    );
+    res.status(201).json({ message: "Ok", resultados });
+  } catch (error) {
+    next(error);
+  }
+};

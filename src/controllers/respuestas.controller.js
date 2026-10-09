@@ -10,6 +10,7 @@ import Sequelize from "../config/db.js";
 import { downloadPdfs, generateDynamicPdfs } from "../utils/generatepdf.js";
 import jwt from "jsonwebtoken";
 import dontenv from "dotenv";
+import { loadSecrets } from "../config/secrets.js";
 dontenv.config();
 
 // controllers/respuestas.controller.js
@@ -337,15 +338,18 @@ export const obtenerCalificacion = async (req, res, next) => {
 };
 
 export const respuestasGeneral = async (req, res, next) => {
+  
   const { idusers, idEvaluacion } = req.body;
-  const token = req.cookies.token;
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+  
   if (!token) {
     return res.status(403).json({ message: "Acceso denegado" });
   }
-  const data = jwt.verify(token, process.env.SECRETWORD);
+  const secretCache = await loadSecrets();
+  const data = jwt.verify(token, secretCache.JWT_SECRET);
   try {
     const escalacalificacion = await Calificaciones.findAll({attributes: ["descripcion", "valor"]})
-    const sql =`SELECT CASE WHEN r.idColaborador = r.idEvaluador THEN "AUTOEVALUACIÓN" ELSE "EVALUACIÓN" END as tipo ,
+    const sql =`SELECT e.nombre as nombre_evaluacion, e.year, CASE WHEN r.idColaborador = r.idEvaluador THEN "AUTOEVALUACIÓN" ELSE "EVALUACIÓN" END as tipo ,
     u.idUsuario as "documento", u.nombre AS "Evaluador", 
     u2.idUsuario as "evaluado_cc", u2.nombre as evaluado_nombre, u2.cargo, 
     DATE_FORMAT(u2.fechaIngreso, '%Y-%m-%d') as "fecha_ingreso", e2.urlLogo  as imageUrl, 
@@ -358,8 +362,10 @@ export const respuestasGeneral = async (req, res, next) => {
       JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
       JOIN Competencias c ON c.idCompetencia = d.idCompetencia 
       JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
+      JOIN Evaluaciones e ON e.idEvaluacion = r.idEvaluacion 
     WHERE r.idColaborador IN(:listIds) AND r.idEvaluacion = :idEvaluacion
-    GROUP BY documento, u.nombre, evaluado_cc, evaluado_nombre, c.nombre, tipo,  u2.cargo, imageUrl, fecha_ingreso, fecha_registro;`
+    GROUP BY documento, u.nombre, evaluado_cc, evaluado_nombre, c.nombre, tipo,  u2.cargo, imageUrl,
+     fecha_ingreso, fecha_registro, e.nombre , e.year;`
 
     const replacements = {
       listIds:  idusers,
@@ -371,11 +377,13 @@ export const respuestasGeneral = async (req, res, next) => {
     });
 
     const groupedData = usuarios.reduce((acc, item) => {
-      const { evaluado_cc, evaluado_nombre, cargo, fecha_ingreso, imageUrl, tipo, Competencia, promedio, fecha_registro, documento, Evaluador } = item;
+      const { evaluado_cc, evaluado_nombre, cargo, fecha_ingreso, imageUrl, tipo, Competencia, promedio, fecha_registro, documento, Evaluador, nombre_evaluacion, year } = item;
   
       if (!acc[evaluado_cc]) {
           acc[evaluado_cc] = {
               version: '1.0',
+              evaluacion_nombre: nombre_evaluacion,
+              evaluacion_year: year,
               evaluado_nombre,
               evaluado_cc,
               cargo,
@@ -405,8 +413,7 @@ export const respuestasGeneral = async (req, res, next) => {
   
       return acc;
   }, {});
-  
-  
+
   const result = Object.values(groupedData).map(item => {
       const competenciasMap = item.competencias.reduce((acc, comp) => {
           const key = `${comp.tipo}-${comp.nombre}`;
