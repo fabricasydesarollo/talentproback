@@ -64,10 +64,12 @@ export const UsuariosEvaluadores = db.define('usuariosEvaluadores', {
     },
     idUsuario: {
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false
     },
     idEvaluacion: {
         type: DataTypes.INTEGER,
+        primaryKey: true,
         allowNull: false,
         defaultValue: 1,
         references: {
@@ -123,8 +125,8 @@ export const UsuariosEvaluaciones = db.define("UsuariosEvaluaciones", {
     },
     idTipoEvaluacion: {
         type: DataTypes.INTEGER,
-        allowNull: false,
-        primaryKey: true
+        primaryKey: true,
+        allowNull: false
     },
     attempt: {
         type: DataTypes.INTEGER,
