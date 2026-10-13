@@ -14,11 +14,17 @@ class UsersServices {
     }
     async update(idUsuario, payload) {
         if (!idUsuario) {
-            throw new Error("It's necessary to provide the user ID to update");
+            throw {
+                statusCode: 400,
+                message: "It's necesary the user id"
+            };
         }
         const existingUser = await usersRepository.findById(idUsuario);
         if (!existingUser) {
-            throw new Error("User not found");
+            throw {
+                statusCode: 404,
+                message: 'Not found user'
+            };
         }
         if (payload.contrasena) {
             const password = await hashPassword(payload.contrasena);
@@ -28,13 +34,14 @@ class UsersServices {
         return {
             message: "User updated successfully",
             userOld: existingUser.toJSON(),
-            userNew: payload
+            userNew: payload,
+            statusCode: 200
         };
     }
     async addColaboradores(usuarios) {
         if (!Array.isArray(usuarios) || usuarios.length === 0) {
             throw {
-                status: 400,
+                statusCode: 400,
                 message: "The 'usuarios' array is required and cannot be empty"
             }
         }
@@ -50,7 +57,7 @@ class UsersServices {
             return {
                 message: `${rowsAffected} usuario(s) soft deleted successfully`,
                 rowsAffected,
-                status: 200,
+                statusCode: 200,
                 usersAudit: [...currentUsers],
                 usersCreate: []
             };
@@ -81,7 +88,7 @@ class UsersServices {
         const { currentUsers, rowsAffected } = await userevaluatorRepository.softDeleteEvaluator({ idEvaluador, idEvaluacion, idUsuario, ids_usuarios }, true, true);
         currentUsersAudit.push(...currentUsers)
         return {
-            status: 200,
+            statusCode: 200,
             message: "Usuarios actualizados correctamente",
             usersAudit: currentUsersAudit,
             usersCreate: usersCreate

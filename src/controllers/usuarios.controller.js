@@ -149,8 +149,7 @@ export const asignarColaboradoresEvaluar = async (req, res, next) => {
       console.error("Error registrando auditoría:", auditError);
     }
 
-
-    res.status(respuesta.message || 200).json(respuesta.message);
+    res.status(respuesta.statusCode || 200).json(respuesta.message);
   } catch (error) {
     next(error);
   }
