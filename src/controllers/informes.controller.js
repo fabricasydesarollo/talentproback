@@ -459,11 +459,6 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
     if (!idEvaluacion && (!idEmpresa || !idSede)) {
       res.status(400).json({ message: "idEvaluacion is required" });
     }
-    let sede = ""
-
-    if (idSede) {
-      sede = " AND s.idSede = :idSede"
-    }
 
     const query = `
         SELECT CASE WHEN r.idColaborador = r.idEvaluador THEN "AUTOEVALUACIÓN" ELSE "EVALUACIÓN" END as tipo ,
