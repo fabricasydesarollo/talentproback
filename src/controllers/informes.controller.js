@@ -435,9 +435,8 @@ export const reporteAccionesMejora = async (req, res, next) => {
     JOIN Compromisos c ON er.idEvalRealizada = c.idEvalRealizada 
     JOIN Competencias c2 ON c2.idCompetencia = c.idCompetencia 
     JOIN TipoCompetencia tc ON tc.idTipo = c2.idTipo 
-    WHERE e.idEvaluacion = :idEvaluacion ${
-      idEmpresa != "0" ? "AND e2.idEmpresa = :idEmpresa;" : ""
-    }`;
+    WHERE e.idEvaluacion = :idEvaluacion ${idEmpresa != "0" ? "AND e2.idEmpresa = :idEmpresa;" : ""
+      }`;
     const replacements = {
       idEvaluacion: idEvaluacion || null,
       idEmpresa: idEmpresa || null,
@@ -483,13 +482,16 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
           JOIN Descriptores d ON d.idDescriptor = r.idDescriptor 
           JOIN Competencias c ON c.idCompetencia = d.idCompetencia 
           JOIN calificaciones c2 ON c2.idCalificacion = r.idCalificacion 
-        WHERE e2.idEmpresa IN(:idEmpresa) ${sede} AND r.idEvaluacion = :idEvaluacion AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
+        WHERE e2.idEmpresa IN(:idEmpresa)
+         AND r.idEvaluacion = :idEvaluacion 
+         AND (:idSede IS NULL OR s.idSede = :idSede)
+         AND (:idEvaluador IS NULL OR u.idUsuario = :idEvaluador)
         GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`;
     const replacements = {
-      idEmpresa: idEmpresa || null,
-      idSede: idSede || null,
+      idEmpresa,
+      idSede: Number(idSede) === 0 ? null : idSede,
       idEvaluador: idEvaluador || null,
-      idEvaluacion: idEvaluacion,
+      idEvaluacion,
     };
     const informe = await Sequelize.query(query, {
       replacements,
@@ -585,7 +587,7 @@ export const exportExcel = async (req, res, next) => {
 
     const readStream = fs.createReadStream(tmpPath);
     readStream.on("close", () => {
-      fs.unlink(tmpPath, () => {}); // limpia archivo temporal
+      fs.unlink(tmpPath, () => { }); // limpia archivo temporal
     });
     readStream.pipe(res);
   } catch (error) {
