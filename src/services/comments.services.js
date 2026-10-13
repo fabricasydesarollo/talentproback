@@ -16,7 +16,7 @@ class CommentsServices {
             || !payload.idEvaluador
             || !payload.comentario
             || !payload.promedio
-            || (!payload.retroalimentacion  && (payload.idColaborador !== payload.idEvaluador))
+            || (!payload.retroalimentacion  === (payload.idColaborador !== payload.idEvaluador))
         ) {
             throw {
                 statusCode: 400,
