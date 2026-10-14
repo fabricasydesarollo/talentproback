@@ -169,9 +169,10 @@ export const informeAvancesGraficasAll = async (req, res, next) => {
       SELECT COUNT(DISTINCT u.idUsuario) AS Usuarios,
       COUNT(DISTINCT r.idColaborador) AS Evaluacion,
       COUNT(DISTINCT r2.idColaborador) AS Autoevaluacion
-      FROM usuarios u 
+      FROM usuarios u
+      JOIN UsuariosEvaluaciones ue ON ue.idUsuario = u.idUsuario AND ue.idEvaluacion = :idEvaluacion
       LEFT JOIN respuestas r ON u.idUsuario = r.idColaborador  AND u.idUsuario != r.idEvaluador AND r.idEvaluacion = :idEvaluacion
-      LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador  AND r2.idEvaluacion = :idEvaluacion 
+      LEFT JOIN respuestas r2 ON u.idUsuario = r2.idColaborador AND u.idUsuario = r2.idEvaluador  AND r2.idEvaluacion = :idEvaluacion
       WHERE u.activo = 1;`;
     const avanceGlobal = await Sequelize.query(query, {
       replacements,
@@ -495,7 +496,7 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
     };
     const informe = await Sequelize.query(query, {
       replacements,
-      type: Sequelize.QueryTypes.SELECT,
+      type: Sequelize.QueryTypes.SELECT
     });
 
     res.status(200).json({
