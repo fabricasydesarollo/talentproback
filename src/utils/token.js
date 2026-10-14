@@ -1,8 +1,9 @@
 import jwt from "jsonwebtoken";
 import dontenv from "dotenv";
+import { loadSecrets } from "../config/secrets.js";
 dontenv.config();
 
-const SECRETWORD = process.env.SECRETWORD;
+const secretCache = await loadSecrets();
 
 export const generateToken = async (usuario) => {
     try {
@@ -12,7 +13,7 @@ export const generateToken = async (usuario) => {
               correo: usuario.correo,
               idPerfil: usuario.idPerfil,
             },
-            SECRETWORD,
+            secretCache.JWT_SECRET,
             { expiresIn: "6h" }
           );
     } catch (error) {
@@ -21,7 +22,6 @@ export const generateToken = async (usuario) => {
 };
 
 export const validateToken = (req, res, next) => {
-
   let token;
   if (req.cookies?.token){
     token = req.cookies.token;
@@ -33,13 +33,13 @@ export const validateToken = (req, res, next) => {
     }
   }
   if (!token) {
-    return res.status(403).json({ message: "Acceso denegado" });
+    return res.status(403).json({ message: "Acceso denegado", status: false });
   }
   try {
-    const data = jwt.verify(token, process.env.SECRETWORD);
+    const data = jwt.verify(token, secretCache.JWT_SECRET);
     res.status(200).json({ message: "Sesión valida", data });
   } catch (error) {
-    res.status(403).json({ message: "Token inválido o expirado" });
+    res.status(403).json({ message: "Token inválido o expirado", status: false });
   }
 };
 

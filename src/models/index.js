@@ -1,10 +1,11 @@
 import { ADMMenus, ADMPerfilesRutas, ADMPerfilesUsuarios, ADMRutas } from "./administrar.model.js"
+import { Auditoria } from "./auditoria.model.js"
 import { Ciudades, Departamentos } from "./ciudades.model.js"
 import { Competencias, CompetenciasEmpresas, CompetenciasNivelesCargo, Descriptores, EvaluacionCompetencias, TipoCompetencia } from "./competencias.model.js"
 import { Empresas, Hubs, Sedes } from "./empresas.model.js"
 import { Compromisos, DescriptoresNivelesCargo, Evaluaciones, EvaluacionesRealizadas, TipoEvaluaciones } from "./evaluaciones.model.js"
 import { Calificaciones, Respuestas } from "./respuestas.model.js"
-import { NivelCargo, Perfiles, UsuariosEvaluadores, Usuarios, UsuariosEmpresas, UsuariosSedes,  UsuariosEvaluaciones } from "./usuarios.model.js"
+import { NivelCargo, Perfiles, UsuariosEvaluadores, Usuarios, UsuariosEmpresas, UsuariosSedes, UsuariosEvaluaciones } from "./usuarios.model.js"
 
 
 const initModels = () => {
@@ -35,8 +36,8 @@ const initModels = () => {
     Competencias.belongsToMany(Empresas, { through: CompetenciasEmpresas, foreignKey: 'idCompetencia' })
     Empresas.belongsToMany(Competencias, { through: CompetenciasEmpresas, foreignKey: 'idEmpresa' })
 
-    Usuarios.belongsToMany(Evaluaciones, {through: UsuariosEvaluaciones, foreignKey: 'idUsuario'})
-    Evaluaciones.belongsToMany(Usuarios, {through: UsuariosEvaluaciones, foreignKey: 'idEvaluacion'})
+    Usuarios.belongsToMany(Evaluaciones, { through: UsuariosEvaluaciones, foreignKey: 'idUsuario' })
+    Evaluaciones.belongsToMany(Usuarios, { through: UsuariosEvaluaciones, foreignKey: 'idEvaluacion' })
 
     NivelCargo.hasMany(Usuarios, { foreignKey: 'idNivelCargo' })
     Usuarios.belongsTo(NivelCargo, { foreignKey: 'idNivelCargo' })
@@ -60,9 +61,9 @@ const initModels = () => {
     Usuarios.belongsTo(Perfiles, { foreignKey: 'idPerfil' })
 
     Usuarios.belongsToMany(Usuarios, { through: UsuariosEvaluadores, as: 'evaluadores', foreignKey: 'idUsuario' })
-    Usuarios.belongsToMany(Usuarios, { through: UsuariosEvaluadores, as: 'colaboradores', foreignKey: 'idEvaluador'})
+    Usuarios.belongsToMany(Usuarios, { through: UsuariosEvaluadores, as: 'colaboradores', foreignKey: 'idEvaluador' })
 
-    UsuariosEvaluadores.belongsTo(Evaluaciones, { foreignKey: 'idEvaluacion' });  
+    UsuariosEvaluadores.belongsTo(Evaluaciones, { foreignKey: 'idEvaluacion' });
     Evaluaciones.hasMany(UsuariosEvaluadores, { foreignKey: 'idEvaluacion' });
 
     Usuarios.belongsToMany(Usuarios, { through: Respuestas, as: "colaboradoresResp", foreignKey: "idColaborador" })
@@ -77,34 +78,37 @@ const initModels = () => {
     Respuestas.belongsTo(Evaluaciones, { foreignKey: "idEvaluacion" })
     Evaluaciones.hasMany(Respuestas, { foreignKey: "idEvaluacion" })
 
-    EvaluacionesRealizadas.belongsTo(Usuarios, {  foreignKey: 'idColaborador',  as: 'colaborador',});
-    EvaluacionesRealizadas.belongsTo(Usuarios, {foreignKey: 'idEvaluador', as: 'evaluador', });
+    EvaluacionesRealizadas.belongsTo(Usuarios, { foreignKey: 'idColaborador', as: 'colaborador', });
+    EvaluacionesRealizadas.belongsTo(Usuarios, { foreignKey: 'idEvaluador', as: 'evaluador', });
 
     Usuarios.hasMany(EvaluacionesRealizadas, { foreignKey: 'idColaborador', as: 'evaluacionesComoColaborador' });
     Usuarios.hasMany(EvaluacionesRealizadas, { foreignKey: 'idEvaluador', as: 'evaluacionesComoEvaluador' });
 
 
-    EvaluacionesRealizadas.belongsTo(Evaluaciones, { foreignKey: 'idEvaluacion', as: 'evaluacion',});
-    Evaluaciones.hasMany(EvaluacionesRealizadas, {foreignKey: 'idEvaluacion'})
+    EvaluacionesRealizadas.belongsTo(Evaluaciones, { foreignKey: 'idEvaluacion', as: 'evaluacion', });
+    Evaluaciones.hasMany(EvaluacionesRealizadas, { foreignKey: 'idEvaluacion' })
 
-    EvaluacionesRealizadas.belongsTo(TipoEvaluaciones, {foreignKey: 'idTipoEvaluacion'})
-    TipoEvaluaciones.hasMany(EvaluacionesRealizadas, {foreignKey: 'idTipoEvaluacion'})
+    EvaluacionesRealizadas.belongsTo(TipoEvaluaciones, { foreignKey: 'idTipoEvaluacion' })
+    TipoEvaluaciones.hasMany(EvaluacionesRealizadas, { foreignKey: 'idTipoEvaluacion' })
 
-    EvaluacionesRealizadas.hasMany(Compromisos, { foreignKey: 'idEvalRealizada', sourceKey: 'idEvalRealizada'});
-    Compromisos.belongsTo(EvaluacionesRealizadas, {foreignKey: 'idEvalRealizada', targetKey: 'idEvalRealizada' });
+    EvaluacionesRealizadas.hasMany(Compromisos, { foreignKey: 'idEvalRealizada', sourceKey: 'idEvalRealizada' });
+    Compromisos.belongsTo(EvaluacionesRealizadas, { foreignKey: 'idEvalRealizada', targetKey: 'idEvalRealizada' });
 
-    Competencias.hasMany(Compromisos, {foreignKey: 'idCompetencia'})
-    Compromisos.belongsTo(Competencias, {foreignKey: 'idCompetencia'})
+    Competencias.hasMany(Compromisos, { foreignKey: 'idCompetencia' })
+    Compromisos.belongsTo(Competencias, { foreignKey: 'idCompetencia' })
 
 
-    ADMMenus.hasMany(ADMRutas, {foreignKey: 'idMenu'})
-    ADMRutas.belongsTo(ADMMenus, {foreignKey: 'idMenu'})
+    ADMMenus.hasMany(ADMRutas, { foreignKey: 'idMenu' })
+    ADMRutas.belongsTo(ADMMenus, { foreignKey: 'idMenu' })
 
-    Perfiles.belongsToMany(Usuarios, {through: ADMPerfilesUsuarios, foreignKey: 'idPerfil' })
-    Usuarios.belongsToMany(Perfiles, {through: ADMPerfilesUsuarios, foreignKey: 'idUsuario' })
+    Perfiles.belongsToMany(Usuarios, { through: ADMPerfilesUsuarios, foreignKey: 'idPerfil' })
+    Usuarios.belongsToMany(Perfiles, { through: ADMPerfilesUsuarios, foreignKey: 'idUsuario' })
 
-    ADMRutas.belongsToMany(Perfiles, {through: ADMPerfilesRutas, foreignKey: 'idRuta' })
-    Perfiles.belongsToMany(ADMRutas, {through: ADMPerfilesRutas, foreignKey: 'idPerfil' })
+    ADMRutas.belongsToMany(Perfiles, { through: ADMPerfilesRutas, foreignKey: 'idRuta' })
+    Perfiles.belongsToMany(ADMRutas, { through: ADMPerfilesRutas, foreignKey: 'idPerfil' })
+
+    Auditoria.belongsTo(Usuarios, { foreignKey: 'usuarioAccion', targetKey: 'idUsuario' });
+    Usuarios.hasMany(Auditoria, { foreignKey: 'usuarioAccion', sourceKey: 'idUsuario' });
 
 }
 export default initModels
