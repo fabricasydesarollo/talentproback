@@ -489,7 +489,7 @@ export const informeExcelResultadosDetalle = async (req, res, next) => {
         GROUP BY u.idUsuario, u.nombre, u2.idUsuario, u2.nombre, c.nombre, tipo, cargo_evaluador, empresa_evaluador, u2.cargo, u2.area, Empresa, fechaIngreso, Sede;`;
     const replacements = {
       idEmpresa: idEmpresa ?? null,
-      idSede: Number(idSede) === 0 ? null : idSede,
+      idSede: idSede === undefined || idSede === null || Number(idSede) === 0 ? null : idSede,
       idEvaluador: idEvaluador ?? null,
       idEvaluacion,
     };
