@@ -15,6 +15,7 @@ export const loadSecrets = async () => {
     DB_NAME: process.env.DB_NAME || await getSecret("talentpro-db-name"),
     DB_PASSWORD: process.env.DB_PASSWORD || await getSecret("talentpro-db-password"),
     JWT_SECRET: process.env.SECRETWORD || await getSecret("talentpro-secret"),
+    LAUNCH_TICKET_SECRET: process.env.LAUNCH_TICKET_SECRET || await getSecret("talentpro-launch-ticket"),
   };
 
   return secretsCache;

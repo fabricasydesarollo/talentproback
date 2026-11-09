@@ -14,6 +14,7 @@ dontenv.config()
 const app = express()
 
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser())
 initTask() // ⏳ Ejecutar cron jobs al iniciar el servidor
 
